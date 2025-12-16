@@ -41,6 +41,20 @@ To build and test in Rust:
 cargo build && cargo test
 ```
 
+Publish the library:
+
+```
+cargo publish
+```
+
+To build the Python-wrapper library:
+
+```
+cd lib-py
+./venv/bin/pip install -r requirements.txt
+VIRTUAL_ENV="./venv" ./venv/bin/maturin develop
+```
+
 ## Samples
 
 ```

@@ -749,7 +749,7 @@ pub fn create_final_cet_sigs(
 
 #[cfg(feature = "with-pyo3")]
 #[pymodule]
-fn dlcplazacryptlib(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn dlccryptlib(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     m.add_function(wrap_pyfunction!(reinit_for_testing, m)?)?;
     m.add_function(wrap_pyfunction!(init_with_entropy, m)?)?;
