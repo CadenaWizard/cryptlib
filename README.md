@@ -22,13 +22,13 @@ The library is written in Rust (a programming environment popular for crypto imp
 
 ## Roadmap
 
-Currently `cryptlib` lives in three copies (with slight differences):
+Currently `cryptlib` lives in two copies (with slight differences):
 
-https://github.com/CadenaWizard/cryptlib
+- Lib, this repo: https://github.com/CadenaWizard/cryptlib
 
-https://github.com/CadenaWizard/oracle/tree/main/dlcplazacryptlib
+- Client app: https://github.com/CadenaWizard/signer_app/tree/main/flutter_plugin
 
-https://github.com/CadenaWizard/signer_app/tree/main/flutter_plugin
+In the Oracle it is used from here, with a light Python wrapper. https://github.com/CadenaWizard/oracle/tree/main/dlcplazacryptlib
 
 We plan to unify them into this repository.
 
