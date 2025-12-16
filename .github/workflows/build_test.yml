@@ -1,4 +1,4 @@
-name: Rust
+name: Rust-Python
 
 on:
   push:
@@ -20,8 +20,6 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build the library
       run: cargo build
-    - name: Build with pyo3
-      run: cargo build --features with-pyo3
     - name: Run unit tests
       run: cargo test
     - name: Build and run sample/rust
