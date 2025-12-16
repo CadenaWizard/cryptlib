@@ -2,6 +2,8 @@
 name = "dlccryptlib"
 version = "0.3.0"
 edition = "2021"
+description = "Library for working with DLC's with adaptor signatures (Discrete Log Contracts), by Cadena Bitcoin"
+license = "MIT"
 
 [lib]
 name = "dlccryptlib"

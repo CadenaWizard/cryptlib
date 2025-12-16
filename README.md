@@ -1,13 +1,23 @@
 # cryptlib -- DLC helper library
 
-The project builds on DLC (Dicreet Log Contracts) with adaptor signatures,
-and relevant operations are needed in several places: in the signer app, in the Oracle, etc.
+This library provides methods for working with Dicreet Log Contracts -- DLC's -- with adaptor signatures, on the Bitcoin chain.
 
-The DLC operations are extracted into a separate helper library.
-The [secp256k1_zkp](https://docs.rs/secp256k1-zkp/latest/secp256k1_zkp/) library is used for the cryptographic primitives;
-this is the most complete and secure adaptor signatures implementation available .
-As it's written in Rust (a programming environment popular for crypto implemetations, due to its correctness and performance aspects),
-we also wrote the helper in Rust, with bindings for other languages.
+This library is part of the Cadena Bitcoin platform, and used in places where DLC signatures are required (the Oracle server, the client application).
+
+The [secp256k1_zkp](https://docs.rs/secp256k1-zkp/latest/secp256k1_zkp/) library is used for the cryptographic primitives -- this is the most complete and secure adaptor signatures implementation available.
+
+The library is written in Rust (a programming environment popular for crypto implemetations, due to its correctness and performance aspects), but interfacing from Python or a C interface is also possible.
+
+
+## Functionality
+
+- Load and store seed phrase
+- Generate child account keys, addresses
+- Sign a hash using a child key
+- Generate nonce values
+- Perform Schnorr signature of a message using a given nonce, using a child key
+- Create CET adaptor signature points (batch)
+- Create final CET signature
 
 
 ## Roadmap
@@ -21,17 +31,6 @@ https://github.com/CadenaWizard/oracle/tree/main/dlcplazacryptlib
 https://github.com/CadenaWizard/signer_app/tree/main/flutter_plugin
 
 We plan to unify them into this repository.
-
-
-## Functionality
-
-- Load and store seed phrase
-- Generate child account keys, addresses
-- Sign a hash using a child key
-- Generate nonce values
-- Perform Schnorr signature of a message using a given nonce, using a child key
-- Create CET adaptor signature points (batch)
-- Create final CET signature
 
 
 ## Developing
