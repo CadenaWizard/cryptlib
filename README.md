@@ -41,3 +41,9 @@ To build and test in Rust:
 cargo build && cargo test
 ```
 
+## Samples
+
+```
+cd samples/rust && cargo run && cd ../..
+```
+

@@ -22,3 +22,5 @@ jobs:
       run: cargo build
     - name: Run unit tests
       run: cargo test
+    - name: Build sample/rust
+      run: cd samples/rust && cargo build && cd ../..
