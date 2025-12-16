@@ -1,0 +1,14 @@
+[package]
+name = "dlccryptlib-py"
+version = "0.9.0"
+edition = "2021"
+description = "Python-wrapped library for working with DLC's with adaptor signatures (Discrete Log Contracts), by Cadena Bitcoin"
+license = "MIT"
+
+[lib]
+name = "dlccryptlib_py"
+
+[dependencies]
+#dlccryptlib = "0.9.0"
+dlccryptlib = { path = "../" }
+pyo3 = { version = "0.23.1" }

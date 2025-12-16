@@ -1,0 +1,30 @@
+name: Rust-Python
+
+on:
+  push:
+    branches: [ "main", "develop", "staging" ]
+  pull_request:
+    branches: [ "main", "develop", "staging" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Rust
+      run: sudo apt-get install cargo && rustup override set 1.81
+    - name: Set up Python
+      run: sudo apt-get install python3 python3-dev
+    - uses: actions/checkout@v4
+    - name: Set up a Python virtual environment (needed for maturin)
+      run: python3 -m venv ./venv
+    - name: Install Python deps
+      run: ./venv/bin/pip3 install -r ./lib-py/requirements.txt
+    - name: Build the Rust library, install it as a Python module
+      run: cd lib-py && VIRTUAL_ENV='../venv' ../venv/bin/maturin develop && cd ..
+    - name: Run the Python sample app
+      run: cd samples/python && ../../venv/bin/python main.py && cd ../..

@@ -1,6 +1,6 @@
 [package]
 name = "dlccryptlib"
-version = "0.3.2"
+version = "0.9.0"
 edition = "2021"
 description = "Library for working with DLC's with adaptor signatures (Discrete Log Contracts), by Cadena Bitcoin"
 license = "MIT"
@@ -13,12 +13,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 bip39 = "2.1.0"
 bitcoin = "0.32.4"
-pyo3 = { version = "0.23.1", optional = true }
 secp256k1-sys = "0.10.1"
 secp256k1-zkp = "0.11.0"
 
 [features]
 default = ["std"]
 std = ["bitcoin/std", "secp256k1-zkp/rand-std"]
-# To compile with Python interfacing methods
-with-pyo3 = ["pyo3"]
