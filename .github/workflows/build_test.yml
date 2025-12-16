@@ -1,4 +1,4 @@
-name: Rust-Python
+name: Rust
 
 on:
   push:
