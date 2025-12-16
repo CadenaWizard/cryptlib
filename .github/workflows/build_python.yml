@@ -26,3 +26,5 @@ jobs:
       run: ./venv/bin/pip3 install -r ./lib-py/requirements.txt
     - name: Build the Rust library, install it as a Python module
       run: cd lib-py && VIRTUAL_ENV='../venv' ../venv/bin/maturin develop && cd ..
+    - name: Run the Python sample app
+      run: cd samples/python && ../../venv/bin/python main.py && cd ../..
