@@ -12,12 +12,33 @@ we also wrote the helper in Rust, with bindings for other languages.
 
 ## Roadmap
 
-Currently `cryptlib` lives in two copies (with slight differences):
+Currently `cryptlib` lives in three copies (with slight differences):
+
+https://github.com/CadenaWizard/cryptlib
 
 https://github.com/CadenaWizard/oracle/tree/main/dlcplazacryptlib
 
 https://github.com/CadenaWizard/signer_app/tree/main/flutter_plugin
 
-We plan to unify them and extract to this repository.
+We plan to unify them into this repository.
 
+
+## Functionality
+
+- Load and store seed phrase
+- Generate child account keys, addresses
+- Sign a hash using a child key
+- Generate nonce values
+- Perform Schnorr signature of a message using a given nonce, using a child key
+- Create CET adaptor signature points (batch)
+- Create final CET signature
+
+
+## Developing
+
+To build and test in Rust:
+
+```
+cargo build && cargo test
+```
 

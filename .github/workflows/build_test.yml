@@ -1,0 +1,24 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main", "develop", "staging" ]
+  pull_request:
+    branches: [ "main", "develop", "staging" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Rust
+      run: sudo apt-get install cargo && rustup override set 1.81
+    - uses: actions/checkout@v4
+    - name: Build the library
+      run: cargo build
+    - name: Run unit tests
+      run: cargo test
