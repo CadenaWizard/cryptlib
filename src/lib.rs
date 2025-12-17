@@ -27,7 +27,7 @@ use std::os::raw::c_char;
 use std::str::FromStr;
 
 /// Initialize the library, load secret from encrypted file. Return the XPUB.
-pub fn init_intern(
+pub fn init(
     path_for_secret_file: &str,
     encryption_password: &str,
     allow_reinit: bool,
@@ -43,7 +43,7 @@ pub fn init_intern(
 
 /// Initialize the library, provide the secret as parameter. Return the XPUB.
 // #[cfg(test)]
-pub fn init_with_entropy_intern(entropy: &str, network: &str) -> Result<String, String> {
+pub fn init_with_entropy(entropy: &str, network: &str) -> Result<String, String> {
     let entropy_bin = parse_entropy_hex(entropy)?;
     global_lib()
         .write()
@@ -53,22 +53,22 @@ pub fn init_with_entropy_intern(entropy: &str, network: &str) -> Result<String, 
     Ok(xpub.to_string())
 }
 
-pub fn get_xpub_intern() -> Result<String, String> {
+pub fn get_xpub() -> Result<String, String> {
     let xpub = global_lib().read().unwrap().get_xpub()?;
     Ok(xpub.to_string())
 }
 
-pub fn get_public_key_intern(index: u32) -> Result<String, String> {
+pub fn get_public_key(index: u32) -> Result<String, String> {
     let pubkey = global_lib().read().unwrap().get_child_public_key(index)?;
     Ok(pubkey.to_string())
 }
 
-pub fn get_address_intern(index: u32) -> Result<String, String> {
+pub fn get_address(index: u32) -> Result<String, String> {
     let address = global_lib().read().unwrap().get_address(index)?;
     Ok(address.to_string())
 }
 
-pub fn verify_public_key_intern(index: u32, pubkey_str: &str) -> Result<bool, String> {
+pub fn verify_public_key(index: u32, pubkey_str: &str) -> Result<bool, String> {
     let pubkey =
         pubkey_from_hex(pubkey_str).map_err(|e| format!("Failed to parse pubkey {}", e))?;
     let verify_result = global_lib()
@@ -78,7 +78,7 @@ pub fn verify_public_key_intern(index: u32, pubkey_str: &str) -> Result<bool, St
     Ok(verify_result)
 }
 
-pub fn sign_hash_ecdsa_intern(
+pub fn sign_hash_ecdsa(
     hash_str: &str,
     index: u32,
     signer_pubkey_str: &str,
@@ -94,7 +94,7 @@ pub fn sign_hash_ecdsa_intern(
     Ok(sig.to_lower_hex_string())
 }
 
-pub fn create_deterministic_nonce_intern(
+pub fn create_deterministic_nonce(
     event_id: &str,
     index: u32,
 ) -> Result<(String, String), String> {
@@ -106,7 +106,7 @@ pub fn create_deterministic_nonce_intern(
 }
 
 // Schnorr signing with nonce
-pub fn sign_schnorr_with_nonce_intern(
+pub fn sign_schnorr_with_nonce(
     msg: &str,
     nonce_sec_hex: &str,
     index: u32,
@@ -120,7 +120,7 @@ pub fn sign_schnorr_with_nonce_intern(
     Ok(sig.to_string())
 }
 
-pub fn combine_pubkeys_intern(keys_hex: &str) -> Result<String, String> {
+pub fn combine_pubkeys(keys_hex: &str) -> Result<String, String> {
     let keys_split: Vec<_> = keys_hex.split(" ").collect();
     let mut keys = Vec::<PublicKey>::with_capacity(keys_split.len());
     for i in 0..keys_split.len() {
@@ -135,7 +135,7 @@ pub fn combine_pubkeys_intern(keys_hex: &str) -> Result<String, String> {
     Ok(combined_key.to_string())
 }
 
-pub fn combine_seckeys_intern(keys_hex: &str) -> Result<String, String> {
+pub fn combine_seckeys(keys_hex: &str) -> Result<String, String> {
     let keys_split: Vec<_> = keys_hex.split(" ").collect();
     let mut keys = Vec::<SecretKey>::with_capacity(keys_split.len());
     for i in 0..keys_split.len() {
@@ -150,7 +150,7 @@ pub fn combine_seckeys_intern(keys_hex: &str) -> Result<String, String> {
     Ok(combined_key.display_secret().to_string())
 }
 
-pub fn create_cet_adaptor_sigs_intern(
+pub fn create_cet_adaptor_sigs(
     num_digits: u8,
     num_cets: u64,
     digit_string_template: &str,
@@ -239,7 +239,7 @@ pub fn create_cet_adaptor_sigs_intern(
     Ok(sigs_str)
 }
 
-pub fn verify_cet_adaptor_sigs_intern(
+pub fn verify_cet_adaptor_sigs(
     num_digits: u8,
     num_cets: u64,
     digit_string_template: &str,
@@ -339,7 +339,7 @@ pub fn verify_cet_adaptor_sigs_intern(
     Ok(res.is_ok())
 }
 
-pub fn create_final_cet_sigs_intern(
+pub fn create_final_cet_sigs(
     signing_key_index: u32,
     signing_pubkey_str: &str,
     other_pubkey_str: &str,
@@ -419,7 +419,7 @@ pub extern "C" fn init_with_entropy_c(
             .unwrap_or("Error in network parameter")
     };
 
-    match init_with_entropy_intern(entropy_str, network_str) {
+    match init_with_entropy(entropy_str, network_str) {
         Ok(xpub) => {
             // Return as a C string
             CString::new(xpub).unwrap().into_raw()
@@ -431,7 +431,7 @@ pub extern "C" fn init_with_entropy_c(
 /// Return a child public key (specified by its index).
 #[no_mangle]
 pub extern "C" fn get_public_key_c(index: u32) -> *mut c_char {
-    match get_public_key_intern(index) {
+    match get_public_key(index) {
         Ok(pubkey) => {
             // Return as a C string
             CString::new(pubkey).unwrap().into_raw()
@@ -459,7 +459,7 @@ pub extern "C" fn sign_hash_ecdsa_c(
             .unwrap_or("Error in signer_pubkey parameter")
     };
 
-    match sign_hash_ecdsa_intern(hash_str, signer_index, signer_pubkey_str) {
+    match sign_hash_ecdsa(hash_str, signer_index, signer_pubkey_str) {
         Ok(sig) => {
             // Return as a C string
             CString::new(sig).unwrap().into_raw()
@@ -513,7 +513,7 @@ pub extern "C" fn create_cet_adaptor_sigs_c(
             .unwrap_or("Error in sighashes parameter")
     };
 
-    match create_cet_adaptor_sigs_intern(
+    match create_cet_adaptor_sigs(
         num_digits,
         num_cets as u64,
         digit_string_template_str,
@@ -542,7 +542,7 @@ pub extern "C" fn create_deterministic_nonce_c(event_id: *const c_char, index: u
     };
 
     // Call your existing function that creates the nonce (assuming this is what you want)
-    match create_deterministic_nonce_intern(event_id_str, index) {
+    match create_deterministic_nonce(event_id_str, index) {
         Ok((sk, pk)) => {
             // Return as a C string
             CString::new(format!("{} {}", sk, pk)).unwrap().into_raw()

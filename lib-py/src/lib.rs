@@ -10,7 +10,7 @@ use pyo3::wrap_pyfunction;
 /// Initialize the library, load secret from encrypted file. Return the XPUB.
 #[pyfunction]
 pub fn init(path_for_secret_file: String, encryption_password: String) -> PyResult<String> {
-    dlccryptlib::init_intern(&path_for_secret_file, &encryption_password, false)
+    dlccryptlib::init(&path_for_secret_file, &encryption_password, false)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
@@ -19,7 +19,7 @@ pub fn reinit_for_testing(
     path_for_secret_file: String,
     encryption_password: String,
 ) -> PyResult<String> {
-    dlccryptlib::init_intern(&path_for_secret_file, &encryption_password, true)
+    dlccryptlib::init(&path_for_secret_file, &encryption_password, true)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
@@ -27,37 +27,37 @@ pub fn reinit_for_testing(
 // #[cfg(test)]
 #[pyfunction]
 pub fn init_with_entropy(entropy: String, network: String) -> PyResult<String> {
-    dlccryptlib::init_with_entropy_intern(&entropy, &network).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::init_with_entropy(&entropy, &network).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Return the XPUB
 #[pyfunction]
 pub fn get_xpub() -> PyResult<String> {
-    dlccryptlib::get_xpub_intern().map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::get_xpub().map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Return a child public key (specified by its index).
 #[pyfunction]
 pub fn get_public_key(index: u32) -> PyResult<String> {
-    dlccryptlib::get_public_key_intern(index).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::get_public_key(index).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Return a child address (specified by index).
 #[pyfunction]
 pub fn get_address(index: u32) -> PyResult<String> {
-    dlccryptlib::get_address_intern(index).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::get_address(index).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Verify a child public key.
 #[pyfunction]
 pub fn verify_public_key(index: u32, pubkey: String) -> PyResult<bool> {
-    dlccryptlib::verify_public_key_intern(index, &pubkey).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::verify_public_key(index, &pubkey).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Sign a hash with a child private key (specified by index).
 #[pyfunction]
 pub fn sign_hash_ecdsa(hash: String, signer_index: u32, signer_pubkey: String) -> PyResult<String> {
-    dlccryptlib::sign_hash_ecdsa_intern(&hash, signer_index, &signer_pubkey)
+    dlccryptlib::sign_hash_ecdsa(&hash, signer_index, &signer_pubkey)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
@@ -67,28 +67,28 @@ pub fn create_deterministic_nonce(
     event_id: String,
     nonce_index: u32,
 ) -> PyResult<(String, String)> {
-    dlccryptlib::create_deterministic_nonce_intern(&event_id, nonce_index)
+    dlccryptlib::create_deterministic_nonce(&event_id, nonce_index)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
 pub fn sign_schnorr_with_nonce(msg: String, nonce_sec_hex: String, index: u32) -> PyResult<String> {
-    dlccryptlib::sign_schnorr_with_nonce_intern(&msg, &nonce_sec_hex, index)
+    dlccryptlib::sign_schnorr_with_nonce(&msg, &nonce_sec_hex, index)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Combine a number of public keys into one
 #[pyfunction]
 pub fn combine_pubkeys(keys_hex: String) -> PyResult<String> {
-    dlccryptlib::combine_pubkeys_intern(&keys_hex).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::combine_pubkeys(&keys_hex).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Combine a number of secret keys into one.
 /// Warning: Handle secret keys with caution!
 #[pyfunction]
 pub fn combine_seckeys(keys_hex: String) -> PyResult<String> {
-    dlccryptlib::combine_seckeys_intern(&keys_hex).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::combine_seckeys(&keys_hex).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Create adaptor signatures for a number of CETs
@@ -104,7 +104,7 @@ pub fn create_cet_adaptor_sigs(
     interval_wildcards: String,
     sighashes: String,
 ) -> PyResult<String> {
-    dlccryptlib::create_cet_adaptor_sigs_intern(
+    dlccryptlib::create_cet_adaptor_sigs(
         num_digits,
         num_cets,
         &digit_string_template,
@@ -131,7 +131,7 @@ pub fn verify_cet_adaptor_sigs(
     sighashes: String,
     signatures: String,
 ) -> PyResult<bool> {
-    dlccryptlib::verify_cet_adaptor_sigs_intern(
+    dlccryptlib::verify_cet_adaptor_sigs(
         num_digits,
         num_cets,
         &digit_string_template,
@@ -157,7 +157,7 @@ pub fn create_final_cet_sigs(
     cet_sighash: String,
     other_adaptor_signature: String,
 ) -> PyResult<String> {
-    dlccryptlib::create_final_cet_sigs_intern(
+    dlccryptlib::create_final_cet_sigs(
         signing_key_index,
         &signing_pubkey,
         &other_pubkey,
