@@ -4,9 +4,9 @@
 
 use crate::adaptor_signature::verify_ecdsa_signature;
 use crate::{
-    combine_pubkeys_intern, combine_seckeys_intern, create_deterministic_nonce_intern,
-    get_public_key_intern, init_with_entropy_intern, keypair_from_sec_key_hex,
-    sign_schnorr_with_nonce_intern, verify_public_key_intern, Lib,
+    combine_pubkeys, combine_seckeys, create_deterministic_nonce,
+    get_public_key, init_with_entropy, keypair_from_sec_key_hex,
+    sign_schnorr_with_nonce, verify_public_key, Lib,
 };
 use bitcoin::hex::FromHex;
 use bitcoin::secp256k1::PublicKey;
@@ -54,15 +54,15 @@ fn test_init_with_entropy_lib_mainnet() {
 
 #[test]
 fn test_get_public_key() {
-    let _xpub = init_with_entropy_intern(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
 
-    let pubkey0 = get_public_key_intern(0).unwrap();
+    let pubkey0 = get_public_key(0).unwrap();
     assert_eq!(
         pubkey0.to_string(),
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
     );
 
-    let pubkey3 = get_public_key_intern(3).unwrap();
+    let pubkey3 = get_public_key(3).unwrap();
     assert_eq!(
         pubkey3.to_string(),
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
@@ -71,21 +71,21 @@ fn test_get_public_key() {
 
 #[test]
 fn test_verify_public_key() {
-    let _xpub = init_with_entropy_intern(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
 
-    assert!(verify_public_key_intern(
+    assert!(verify_public_key(
         0,
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
     )
     .unwrap());
-    assert_eq!(verify_public_key_intern(0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
+    assert_eq!(verify_public_key(0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
             "Pubkey mismatch, index 0, 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e vs. 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32");
-    assert!(verify_public_key_intern(
+    assert!(verify_public_key(
         3,
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
     )
     .unwrap());
-    assert_eq!(verify_public_key_intern(3, "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32").err().unwrap(),
+    assert_eq!(verify_public_key(3, "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32").err().unwrap(),
             "Pubkey mismatch, index 3, 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32 vs. 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e");
 }
 
@@ -115,33 +115,33 @@ fn test_sign_hash_ecdsa() {
 
 #[test]
 fn test_create_deterministic_nonce() {
-    let (sk1, pk1) = create_deterministic_nonce_intern("event01", 0).unwrap();
+    let (sk1, pk1) = create_deterministic_nonce("event01", 0).unwrap();
     assert_eq!(sk1.len(), 64);
     assert_eq!(pk1.len(), 66);
     assert_ne!(sk1, pk1);
-    let (sk2, pk2) = create_deterministic_nonce_intern("event01", 1).unwrap();
+    let (sk2, pk2) = create_deterministic_nonce("event01", 1).unwrap();
     assert_ne!(sk1, sk2);
     assert_ne!(pk1, pk2);
 }
 
 #[test]
 fn test_sign_schnorr_with_nonce() {
-    let _xpub = init_with_entropy_intern(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
 
     let msg = "This is a message";
     let nonce = "0123450000000000006897528962743076432965432697856340567500000100";
-    let sig = sign_schnorr_with_nonce_intern(msg, nonce, 0).unwrap();
+    let sig = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
     let expected_sig = "ff4cb99e0a9be8ec7dea1e51904cf22f71717c19fc3e7dcbc8346eb28bebffbb892c4c41e05c2383efda00f5acc9c7f3622d88a90630cd62d49db598c8ce10b9";
     assert_eq!(sig.len(), 128);
     assert_eq!(sig.to_string(), expected_sig);
 
     // sign again
-    let sig2 = sign_schnorr_with_nonce_intern(msg, nonce, 0).unwrap();
+    let sig2 = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
     assert_eq!(sig2.to_string(), expected_sig);
 
     // sign with different nonce
     let nonce2 = "0123450000000000006897528962743076432965432697856340567500000199";
-    let sig3 = sign_schnorr_with_nonce_intern(msg, nonce2, 0).unwrap();
+    let sig3 = sign_schnorr_with_nonce(msg, nonce2, 0).unwrap();
     assert_eq!(sig3.to_string(), "4578740620e7a2c56eabea07c835dba35e832115930d023d0a7778652fbbf7d97a9f4a207dcb1456f1b0f57c4856085c32c79f4efce81cd276c272190aab5e3c");
 }
 
@@ -161,7 +161,7 @@ fn test_combine_pubkeys() {
     for i in 0..3 {
         input_str += &(create_dummy_pubkey(i).to_string() + " ");
     }
-    let combined = combine_pubkeys_intern(&input_str).unwrap();
+    let combined = combine_pubkeys(&input_str).unwrap();
     assert_eq!(
         combined,
         "030d7a38fb6eab9933efd3149f7ce0c466e93eb0680442856acb664719b60ae977"
@@ -173,7 +173,7 @@ fn test_combine_seckeys() {
     let input_str = "0123450000000000006897528962743076432965432697856340567500000100 \
             0123450000000000006897528962743076432965432697856340567500000200 \
             0123450000000000006897528962743076432965432697856340567500000300";
-    let combined = combine_seckeys_intern(input_str).unwrap();
+    let combined = combine_seckeys(input_str).unwrap();
     assert_eq!(
         combined,
         "0369cf00000000000139c5f79c275c9162c97c2fc973c69029c1035f00000600"
