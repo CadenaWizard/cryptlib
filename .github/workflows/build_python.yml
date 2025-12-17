@@ -28,3 +28,7 @@ jobs:
       run: cd lib-py && VIRTUAL_ENV='../venv' ../venv/bin/maturin develop && cd ..
     - name: Run the Python sample app
       run: cd samples/python && ../../venv/bin/python main.py && cd ../..
+    - name: Run the Python test (Python interface)
+      run: cd samples/python && ../../venv/bin/python test_lib.py && cd ../..
+    - name: Run the Python test (C interface)
+      run: cd samples/python && ../../venv/bin/python test_lib_c.py && cd ../..
