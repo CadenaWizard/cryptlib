@@ -1,12 +1,16 @@
 ///
 ///  Sample Rust program to use dlccryptlib.
 ///
+
+#[cfg(test)]
+mod test_lib;
+
 use dlccryptlib;
 
 fn main() {
     println!("Dlccryptlib sample (Rust)");
 
-    let entropy_hex = "99d33a674ce99d33a674ce99d33a674c"; // oil x 12
+    let entropy_hex = "00000000000000000000000000000001"; // abandon x 11 actual
     let network = "signet";
 
     let xpub = dlccryptlib::init_with_entropy_intern(entropy_hex, network).unwrap();

@@ -3,7 +3,7 @@ import dlccryptlib_py
 def sample():
     print("Dlccryptlib sample app, Python")
 
-    entropy_hex = "99d33a674ce99d33a674ce99d33a674c" # oil x 12
+    entropy_hex = "00000000000000000000000000000001" # abandon x 11 actual
     network = "signet";
 
     xpub = dlccryptlib_py.init_with_entropy(entropy_hex, network)
