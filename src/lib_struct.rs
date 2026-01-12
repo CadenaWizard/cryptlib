@@ -4,7 +4,7 @@
 
 use crate::adaptor_signature::{
     create_cet_adaptor_signatures, create_final_cet_signatures, sign_hash_ecdsa_with_key,
-    sign_schnorr_with_nonce_sec, verify_cet_adaptor_signatures,
+    sign_schnorr_with_nonce_sec, verify_cet_adaptor_signatures, verify_schnorr,
 };
 use crate::hd_wallet_storage::HDWalletStorage;
 
@@ -149,6 +149,17 @@ impl Lib {
     ) -> Result<SchnorrSignature, String> {
         let kp = self.get_child_keypair(index)?;
         sign_schnorr_with_nonce_sec(&self.secp, &kp, msg, nonce_sec)
+    }
+
+    /// Verify a Schnorr signature on a message using Schnorr, using a child key
+    pub(crate) fn verify_schnorr(
+        &self,
+        msg: &str,
+        signature: &SchnorrSignature,
+        index: u32,
+    ) -> Result<bool, String> {
+        let pubkey = self.get_child_public_key(index)?.x_only_public_key().0;
+        verify_schnorr(&self.secp, signature, &pubkey, msg)
     }
 
     pub(crate) fn combine_seckeys(secrets: &Vec<SecretKey>) -> Result<SecretKey, String> {

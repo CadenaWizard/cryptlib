@@ -4,9 +4,9 @@
 
 use crate::adaptor_signature::verify_ecdsa_signature;
 use crate::{
-    combine_pubkeys, combine_seckeys, create_deterministic_nonce,
-    get_public_key, init_with_entropy, keypair_from_sec_key_hex,
-    sign_schnorr_with_nonce, verify_public_key, Lib,
+    combine_pubkeys, combine_seckeys, create_deterministic_nonce, get_public_key,
+    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
+    verify_schnorr, Lib,
 };
 use bitcoin::hex::FromHex;
 use bitcoin::secp256k1::PublicKey;
@@ -143,6 +143,34 @@ fn test_sign_schnorr_with_nonce() {
     let nonce2 = "0123450000000000006897528962743076432965432697856340567500000199";
     let sig3 = sign_schnorr_with_nonce(msg, nonce2, 0).unwrap();
     assert_eq!(sig3.to_string(), "4578740620e7a2c56eabea07c835dba35e832115930d023d0a7778652fbbf7d97a9f4a207dcb1456f1b0f57c4856085c32c79f4efce81cd276c272190aab5e3c");
+}
+
+#[test]
+fn test_verify_schnorr() {
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+
+    let msg = "This is a message";
+
+    // Constant signature
+    let sig1 = "ff4cb99e0a9be8ec7dea1e51904cf22f71717c19fc3e7dcbc8346eb28bebffbb892c4c41e05c2383efda00f5acc9c7f3622d88a90630cd62d49db598c8ce10b9";
+    let verify_res = verify_schnorr(msg, &sig1, 0).unwrap();
+    assert_eq!(verify_res, true);
+
+    // Signature created here
+    let nonce = "0123450000000000006897528962743076432965432697856340567500000100";
+    let sig = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
+
+    let verify_res = verify_schnorr(msg, &sig, 0).unwrap();
+    assert_eq!(verify_res, true);
+
+    // Verify with different key index
+    let verify_res = verify_schnorr(msg, &sig, 1).unwrap();
+    assert_eq!(verify_res, false);
+
+    // Verify with a different message
+    let msg2 = "This is ANOTHER message";
+    let verify_res = verify_schnorr(msg2, &sig, 0).unwrap();
+    assert_eq!(verify_res, false);
 }
 
 fn create_dummy_pubkey(index: u8) -> PublicKey {
