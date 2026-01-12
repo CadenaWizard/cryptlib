@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-#dlccryptlib = "0.9.1"
+#dlccryptlib = "1.0.0"
 dlccryptlib = { path = "../../" }
