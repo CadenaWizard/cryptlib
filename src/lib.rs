@@ -94,10 +94,7 @@ pub fn sign_hash_ecdsa(
     Ok(sig.to_lower_hex_string())
 }
 
-pub fn create_deterministic_nonce(
-    event_id: &str,
-    index: u32,
-) -> Result<(String, String), String> {
+pub fn create_deterministic_nonce(event_id: &str, index: u32) -> Result<(String, String), String> {
     let (sk, pk) = global_lib()
         .read()
         .unwrap()
@@ -118,6 +115,17 @@ pub fn sign_schnorr_with_nonce(
         .unwrap()
         .sign_schnorr_with_nonce(msg, &nonce_sec_bin, index)?;
     Ok(sig.to_string())
+}
+
+// Schnorr signature verification
+pub fn verify_schnorr(msg: &str, signature_hex: &str, index: u32) -> Result<bool, String> {
+    let signature = schnorr_sig_from_hex(signature_hex)
+        .map_err(|e| format!("Error in signature hex string {}", e))?;
+    let res = global_lib()
+        .read()
+        .unwrap()
+        .verify_schnorr(msg, &signature, index)?;
+    Ok(res)
 }
 
 pub fn combine_pubkeys(keys_hex: &str) -> Result<String, String> {
@@ -557,4 +565,3 @@ fn error_as_cstr_prefix(error: String) -> *mut c_char {
         .unwrap()
         .into_raw()
 }
-

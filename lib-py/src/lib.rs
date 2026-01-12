@@ -78,6 +78,13 @@ pub fn sign_schnorr_with_nonce(msg: String, nonce_sec_hex: String, index: u32) -
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Verify a Schnorr signature over a message, using a child key
+#[pyfunction]
+pub fn verify_schnorr(msg: String, signature_hex: String, index: u32) -> PyResult<bool> {
+    dlccryptlib::verify_schnorr(&msg, &signature_hex, index)
+        .map_err(|e| PyErr::new::<PyException, _>(e))
+}
+
 /// Combine a number of public keys into one
 #[pyfunction]
 pub fn combine_pubkeys(keys_hex: String) -> PyResult<String> {
@@ -182,6 +189,7 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
     m.add_function(wrap_pyfunction!(create_deterministic_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
+    m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
     m.add_function(wrap_pyfunction!(combine_pubkeys, m)?)?;
     m.add_function(wrap_pyfunction!(combine_seckeys, m)?)?;
     m.add_function(wrap_pyfunction!(create_cet_adaptor_sigs, m)?)?;

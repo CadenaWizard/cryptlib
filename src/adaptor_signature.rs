@@ -153,6 +153,30 @@ fn message_hash(msg: &str) -> Result<Message, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Verify a Schnorr signature on a message
+pub(crate) fn verify_schnorr<S: Signing>(
+    secp: &Secp256k1<S>,
+    sig: &SchnorrSignature,
+    public_key: &XOnlyPublicKey,
+    msg: &str,
+) -> Result<bool, String> {
+    let msg_hash = sha256::Hash::hash(msg.as_bytes()).to_byte_array();
+    let msg_msg = Message::from_digest(msg_hash);
+
+    let res_num: i32;
+    unsafe {
+        res_num = secp256k1_sys::secp256k1_schnorrsig_verify(
+            secp.ctx().as_ref(),
+            sig.as_c_ptr(),
+            msg_msg.as_c_ptr(),
+            32_usize,
+            public_key.as_c_ptr(),
+        );
+    }
+
+    Ok(res_num != 0)
+}
+
 pub(crate) fn create_digit_adaptor_sig_point<S: Signing + Verification>(
     secp: &Secp256k1<S>,
     oracle_pubkey: &PublicKey,
