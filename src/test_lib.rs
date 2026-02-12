@@ -96,21 +96,22 @@ fn test_sign_hash_ecdsa() {
         .init_with_entropy(&dummy_entropy(), DEFAULT_NETWORK)
         .unwrap();
 
-    let pubkey3 = lib.get_child_public_key(3).unwrap();
+    let pubkey3 = lib.get_child_public_key(0, 3).unwrap();
     assert_eq!(
         pubkey3.to_string(),
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
     );
 
     let hash = dummy_bytes32(7);
-    let sig = lib.sign_hash_ecdsa(&hash, 3, &pubkey3).unwrap();
+    let sig = lib.sign_hash_ecdsa(&hash, 0, 3, &pubkey3).unwrap();
 
     // verify_signature
     let verif_res = verify_ecdsa_signature(&hash, &sig, &pubkey3, true).unwrap();
     assert!(verif_res);
 
     // negative test, wrong index
-    assert!(lib.sign_hash_ecdsa(&hash, 31, &pubkey3).is_err());
+    assert!(lib.sign_hash_ecdsa(&hash, 0, 31, &pubkey3).is_err());
+    assert!(lib.sign_hash_ecdsa(&hash, 1, 3, &pubkey3).is_err());
 }
 
 #[test]
@@ -228,7 +229,7 @@ fn test_create_cet_adaptor_sigs() {
     ];
     let sighashes = vec![dummy_bytes32(0), dummy_bytes32(1), dummy_bytes32(2)];
     let oracle_pubkey = create_dummy_pubkey(9);
-    let my_pubkey = lib.get_child_public_key(0).unwrap();
+    let my_pubkey = lib.get_child_public_key(0, 0).unwrap();
     assert_eq!(
         my_pubkey.to_string(),
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
@@ -240,6 +241,7 @@ fn test_create_cet_adaptor_sigs() {
             3, // num_cets
             "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}",
             &oracle_pubkey,
+            0,
             0,
             &my_pubkey,
             &nonces,
@@ -271,7 +273,7 @@ fn test_verify_cet_adaptor_sigs() {
     ];
     let sighashes = vec![dummy_bytes32(0), dummy_bytes32(1), dummy_bytes32(2)];
     let oracle_pubkey = create_dummy_pubkey(9);
-    let my_pubkey = lib.get_child_public_key(0).unwrap();
+    let my_pubkey = lib.get_child_public_key(0, 0).unwrap();
     assert_eq!(
         my_pubkey.to_string(),
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
@@ -284,6 +286,7 @@ fn test_verify_cet_adaptor_sigs() {
             3, // num_cets
             "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}",
             &oracle_pubkey,
+            0,
             0,
             &my_pubkey,
             &nonces,
@@ -320,7 +323,7 @@ fn test_create_final_cet_sigs() {
     // First preparation: create oracle signatures
     let mut lib_ora = Lib::new_empty();
     let _xpub = lib_ora.init_with_entropy(&dummy_bytes32(3).to_vec(), DEFAULT_NETWORK);
-    let oracle_pubkey = lib_ora.get_child_public_key(0).unwrap();
+    let oracle_pubkey = lib_ora.get_child_public_key(0, 0).unwrap();
     assert_eq!(
         oracle_pubkey.to_string(),
         "020a5e571a47cc259d3cc0454a8b7e58bba16e01156bb72d0ce490823f51117cce"
@@ -347,7 +350,7 @@ fn test_create_final_cet_sigs() {
             .replace("{digit_index}", &format!("{}", i))
             .replace("{digit_outcome}", &format!("{}", digit_value));
         let sig = lib_ora
-            .sign_schnorr_with_nonce(&digit_string, &nonces_sec_vec[i], 0)
+            .sign_schnorr_with_nonce(&digit_string, &nonces_sec_vec[i], 0, 0)
             .unwrap();
         oracle_signatures.push(sig);
     }
@@ -357,7 +360,7 @@ fn test_create_final_cet_sigs() {
     let _xpub = lib2
         .init_with_entropy(&dummy_bytes32(2).to_vec(), DEFAULT_NETWORK)
         .unwrap();
-    let other_pubkey = lib2.get_child_public_key(0).unwrap();
+    let other_pubkey = lib2.get_child_public_key(0, 0).unwrap();
     assert_eq!(
         other_pubkey.to_string(),
         "02142c5af97c4afd91bea47ac47e56fad2935dcacc04b3ffa69e5ff7760cbd07ed"
@@ -370,6 +373,7 @@ fn test_create_final_cet_sigs() {
             1, // num_cets
             digits_template_string,
             &oracle_pubkey,
+            0,
             0,
             &other_pubkey,
             &nonces_pub_vec,
@@ -386,7 +390,7 @@ fn test_create_final_cet_sigs() {
     let _xpub = lib1
         .init_with_entropy(&dummy_bytes32(1).to_vec(), DEFAULT_NETWORK)
         .unwrap();
-    let my_pubkey = lib1.get_child_public_key(0).unwrap();
+    let my_pubkey = lib1.get_child_public_key(0, 0).unwrap();
     assert_eq!(
         my_pubkey.to_string(),
         "035bcac7323e9971268213a188d8268277abcd962cdf096e68e2b58c228216f104"
@@ -394,6 +398,7 @@ fn test_create_final_cet_sigs() {
 
     let final_sigs = lib1
         .create_final_cet_sigs(
+            0,
             0,
             &my_pubkey,
             &other_pubkey,

@@ -59,12 +59,18 @@ pub fn get_xpub() -> Result<String, String> {
 }
 
 pub fn get_public_key(index: u32) -> Result<String, String> {
-    let pubkey = global_lib().read().unwrap().get_child_public_key(index)?;
+    let pubkey = global_lib()
+        .read()
+        .unwrap()
+        .get_child_public_key(0 /*index4 TODO*/, index)?;
     Ok(pubkey.to_string())
 }
 
 pub fn get_address(index: u32) -> Result<String, String> {
-    let address = global_lib().read().unwrap().get_address(index)?;
+    let address = global_lib()
+        .read()
+        .unwrap()
+        .get_address(0 /*index4 TODO*/, index)?;
     Ok(address.to_string())
 }
 
@@ -74,7 +80,7 @@ pub fn verify_public_key(index: u32, pubkey_str: &str) -> Result<bool, String> {
     let verify_result = global_lib()
         .read()
         .unwrap()
-        .verify_child_public_key(index, &pubkey)?;
+        .verify_child_public_key(0 /*index4 TODO*/, index, &pubkey)?;
     Ok(verify_result)
 }
 
@@ -87,10 +93,12 @@ pub fn sign_hash_ecdsa(
         .map_err(|e| format!("Failed to parse hash hex, {}", e.to_string()))?;
     let signer_pubkey = pubkey_from_hex(signer_pubkey_str)
         .map_err(|e| format!("Failed to parse signer pubkey {}", e))?;
-    let sig = global_lib()
-        .read()
-        .unwrap()
-        .sign_hash_ecdsa(&hash, index, &signer_pubkey)?;
+    let sig = global_lib().read().unwrap().sign_hash_ecdsa(
+        &hash,
+        0, /*index4 TODO*/
+        index,
+        &signer_pubkey,
+    )?;
     Ok(sig.to_lower_hex_string())
 }
 
@@ -110,10 +118,12 @@ pub fn sign_schnorr_with_nonce(
 ) -> Result<String, String> {
     let nonce_sec_bin = <[u8; 32]>::from_hex(&nonce_sec_hex)
         .map_err(|e| format!("Error in nonce hex string {}", e))?;
-    let sig = global_lib()
-        .read()
-        .unwrap()
-        .sign_schnorr_with_nonce(msg, &nonce_sec_bin, index)?;
+    let sig = global_lib().read().unwrap().sign_schnorr_with_nonce(
+        msg,
+        &nonce_sec_bin,
+        0, /*index4 TODO*/
+        index,
+    )?;
     Ok(sig.to_string())
 }
 
@@ -124,7 +134,7 @@ pub fn verify_schnorr(msg: &str, signature_hex: &str, index: u32) -> Result<bool
     let res = global_lib()
         .read()
         .unwrap()
-        .verify_schnorr(msg, &signature, index)?;
+        .verify_schnorr(msg, &signature, 0 /*index4 TODO*/, index)?;
     Ok(res)
 }
 
@@ -231,6 +241,7 @@ pub fn create_cet_adaptor_sigs(
         num_cets,
         digit_string_template,
         &oracle_pubkey,
+        0, /*index4 TODO*/
         signing_key_index,
         &signing_pubkey,
         &nonces,
@@ -389,6 +400,7 @@ pub fn create_final_cet_sigs(
         EcdsaAdaptorSignature::from_slice(&other_adaptor_signature_bin)
             .map_err(|e| format!("Failed to parse other adaptor sig {}", e))?;
     let (sig1, sig2) = global_lib().read().unwrap().create_final_cet_sigs(
+        0, /*index4 TODO*/
         signing_key_index,
         &signing_pubkey,
         &other_pubkey,
