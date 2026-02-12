@@ -79,14 +79,14 @@ fn test_verify_public_key() {
     )
     .unwrap());
     assert_eq!(verify_public_key(0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
-            "Pubkey mismatch, index 0, 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e vs. 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32");
+            "Pubkey mismatch, index 0/0, 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e vs. 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32");
     assert!(verify_public_key(
         3,
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
     )
     .unwrap());
     assert_eq!(verify_public_key(3, "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32").err().unwrap(),
-            "Pubkey mismatch, index 3, 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32 vs. 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e");
+            "Pubkey mismatch, index 0/3, 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32 vs. 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e");
 }
 
 #[test]

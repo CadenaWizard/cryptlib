@@ -68,7 +68,7 @@ impl Lib {
 
     fn get_child_keypair(&self, index: u32) -> Result<Keypair, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_child_keypair(index)
+            hd_wallet.get_child_keypair(0 /*index4*/, index)
         } else {
             Err("Library not initialized!".to_string())
         }
@@ -77,7 +77,7 @@ impl Lib {
     /// Return a child public key
     pub(crate) fn get_child_public_key(&self, index: u32) -> Result<PublicKey, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_child_public_key(index)
+            hd_wallet.get_child_public_key(0 /*index4*/, index)
         } else {
             Err("Library not initialized!".to_string())
         }
@@ -86,7 +86,7 @@ impl Lib {
     /// Return a child address
     pub(crate) fn get_address(&self, index: u32) -> Result<Address, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_address(index)
+            hd_wallet.get_address(0 /*index4*/, index)
         } else {
             Err("Library not initialized!".to_string())
         }
@@ -99,7 +99,7 @@ impl Lib {
         print_entity: &str,
     ) -> Result<bool, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.verify_child_public_key_intern(index, pubkey, print_entity)
+            hd_wallet.verify_child_public_key_intern(0 /*index4*/, index, pubkey, print_entity)
         } else {
             Err("Library not initialized!".to_string())
         }
