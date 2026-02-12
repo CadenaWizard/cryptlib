@@ -58,47 +58,44 @@ pub fn get_xpub() -> Result<String, String> {
     Ok(xpub.to_string())
 }
 
-pub fn get_public_key(index: u32) -> Result<String, String> {
+pub fn get_public_key(index4: u32, index5: u32) -> Result<String, String> {
     let pubkey = global_lib()
         .read()
         .unwrap()
-        .get_child_public_key(0 /*index4 TODO*/, index)?;
+        .get_child_public_key(index4, index5)?;
     Ok(pubkey.to_string())
 }
 
-pub fn get_address(index: u32) -> Result<String, String> {
-    let address = global_lib()
-        .read()
-        .unwrap()
-        .get_address(0 /*index4 TODO*/, index)?;
+pub fn get_address(index4: u32, index5: u32) -> Result<String, String> {
+    let address = global_lib().read().unwrap().get_address(index4, index5)?;
     Ok(address.to_string())
 }
 
-pub fn verify_public_key(index: u32, pubkey_str: &str) -> Result<bool, String> {
+pub fn verify_public_key(index4: u32, index5: u32, pubkey_str: &str) -> Result<bool, String> {
     let pubkey =
         pubkey_from_hex(pubkey_str).map_err(|e| format!("Failed to parse pubkey {}", e))?;
     let verify_result = global_lib()
         .read()
         .unwrap()
-        .verify_child_public_key(0 /*index4 TODO*/, index, &pubkey)?;
+        .verify_child_public_key(index4, index5, &pubkey)?;
     Ok(verify_result)
 }
 
 pub fn sign_hash_ecdsa(
     hash_str: &str,
-    index: u32,
+    index4: u32,
+    index5: u32,
     signer_pubkey_str: &str,
 ) -> Result<String, String> {
     let hash = <[u8; 32]>::from_hex(hash_str)
         .map_err(|e| format!("Failed to parse hash hex, {}", e.to_string()))?;
     let signer_pubkey = pubkey_from_hex(signer_pubkey_str)
         .map_err(|e| format!("Failed to parse signer pubkey {}", e))?;
-    let sig = global_lib().read().unwrap().sign_hash_ecdsa(
-        &hash,
-        0, /*index4 TODO*/
-        index,
-        &signer_pubkey,
-    )?;
+    let sig =
+        global_lib()
+            .read()
+            .unwrap()
+            .sign_hash_ecdsa(&hash, index4, index5, &signer_pubkey)?;
     Ok(sig.to_lower_hex_string())
 }
 
@@ -114,27 +111,33 @@ pub fn create_deterministic_nonce(event_id: &str, index: u32) -> Result<(String,
 pub fn sign_schnorr_with_nonce(
     msg: &str,
     nonce_sec_hex: &str,
-    index: u32,
+    index4: u32,
+    index5: u32,
 ) -> Result<String, String> {
     let nonce_sec_bin = <[u8; 32]>::from_hex(&nonce_sec_hex)
         .map_err(|e| format!("Error in nonce hex string {}", e))?;
     let sig = global_lib().read().unwrap().sign_schnorr_with_nonce(
         msg,
         &nonce_sec_bin,
-        0, /*index4 TODO*/
-        index,
+        index4,
+        index5,
     )?;
     Ok(sig.to_string())
 }
 
 // Schnorr signature verification
-pub fn verify_schnorr(msg: &str, signature_hex: &str, index: u32) -> Result<bool, String> {
+pub fn verify_schnorr(
+    msg: &str,
+    signature_hex: &str,
+    index4: u32,
+    index5: u32,
+) -> Result<bool, String> {
     let signature = schnorr_sig_from_hex(signature_hex)
         .map_err(|e| format!("Error in signature hex string {}", e))?;
     let res = global_lib()
         .read()
         .unwrap()
-        .verify_schnorr(msg, &signature, 0 /*index4 TODO*/, index)?;
+        .verify_schnorr(msg, &signature, index4, index5)?;
     Ok(res)
 }
 
@@ -173,7 +176,8 @@ pub fn create_cet_adaptor_sigs(
     num_cets: u64,
     digit_string_template: &str,
     oracle_pubkey_str: &str,
-    signing_key_index: u32,
+    signing_key_index4: u32,
+    signing_key_index5: u32,
     signing_pubkey_str: &str,
     nonces: &str,
     interval_wildcards: &str,
@@ -241,8 +245,8 @@ pub fn create_cet_adaptor_sigs(
         num_cets,
         digit_string_template,
         &oracle_pubkey,
-        0, /*index4 TODO*/
-        signing_key_index,
+        signing_key_index4,
+        signing_key_index5,
         &signing_pubkey,
         &nonces,
         &wcs,
@@ -359,7 +363,8 @@ pub fn verify_cet_adaptor_sigs(
 }
 
 pub fn create_final_cet_sigs(
-    signing_key_index: u32,
+    signing_key_index4: u32,
+    signing_key_index5: u32,
     signing_pubkey_str: &str,
     other_pubkey_str: &str,
     num_digits: u8,
@@ -400,8 +405,8 @@ pub fn create_final_cet_sigs(
         EcdsaAdaptorSignature::from_slice(&other_adaptor_signature_bin)
             .map_err(|e| format!("Failed to parse other adaptor sig {}", e))?;
     let (sig1, sig2) = global_lib().read().unwrap().create_final_cet_sigs(
-        0, /*index4 TODO*/
-        signing_key_index,
+        signing_key_index4,
+        signing_key_index5,
         &signing_pubkey,
         &other_pubkey,
         num_digits,
@@ -450,8 +455,8 @@ pub extern "C" fn init_with_entropy_c(
 
 /// Return a child public key (specified by its index).
 #[no_mangle]
-pub extern "C" fn get_public_key_c(index: u32) -> *mut c_char {
-    match get_public_key(index) {
+pub extern "C" fn get_public_key_c(index4: u32, index5: u32) -> *mut c_char {
+    match get_public_key(index4, index5) {
         Ok(pubkey) => {
             // Return as a C string
             CString::new(pubkey).unwrap().into_raw()
@@ -464,7 +469,8 @@ pub extern "C" fn get_public_key_c(index: u32) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn sign_hash_ecdsa_c(
     hash: *const c_char,
-    signer_index: u32,
+    signer_index4: u32,
+    signer_index5: u32,
     signer_pubkey: *const c_char,
 ) -> *mut c_char {
     // Convert input parameter from raw pointer to Rust string
@@ -479,7 +485,7 @@ pub extern "C" fn sign_hash_ecdsa_c(
             .unwrap_or("Error in signer_pubkey parameter")
     };
 
-    match sign_hash_ecdsa(hash_str, signer_index, signer_pubkey_str) {
+    match sign_hash_ecdsa(hash_str, signer_index4, signer_index5, signer_pubkey_str) {
         Ok(sig) => {
             // Return as a C string
             CString::new(sig).unwrap().into_raw()
@@ -495,7 +501,8 @@ pub extern "C" fn create_cet_adaptor_sigs_c(
     num_cets: u32,
     digit_string_template: *const c_char,
     oracle_pubkey: *const c_char,
-    signing_key_index: u32,
+    signing_key_index4: u32,
+    signing_key_index5: u32,
     signing_pubkey: *const c_char,
     nonces: *const c_char,
     interval_wildcards: *const c_char,
@@ -538,7 +545,8 @@ pub extern "C" fn create_cet_adaptor_sigs_c(
         num_cets as u64,
         digit_string_template_str,
         oracle_pubkey_str,
-        signing_key_index,
+        signing_key_index4,
+        signing_key_index5,
         signing_pubkey_str,
         nonces_str,
         interval_wildcards_str,

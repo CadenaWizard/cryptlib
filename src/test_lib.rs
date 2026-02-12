@@ -56,16 +56,22 @@ fn test_init_with_entropy_lib_mainnet() {
 fn test_get_public_key() {
     let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
 
-    let pubkey0 = get_public_key(0).unwrap();
+    let pubkey00 = get_public_key(0, 0).unwrap();
     assert_eq!(
-        pubkey0.to_string(),
+        pubkey00.to_string(),
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
     );
 
-    let pubkey3 = get_public_key(3).unwrap();
+    let pubkey03 = get_public_key(0, 3).unwrap();
     assert_eq!(
-        pubkey3.to_string(),
+        pubkey03.to_string(),
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
+    );
+
+    let pubkey10 = get_public_key(1, 0).unwrap();
+    assert_eq!(
+        pubkey10.to_string(),
+        "02eb2522e05e5b4656aec2e97c85b57c2a9e2c036f4843ae4a21322fe4e6aabcaf"
     );
 }
 
@@ -75,18 +81,30 @@ fn test_verify_public_key() {
 
     assert!(verify_public_key(
         0,
+        0,
         "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32"
     )
     .unwrap());
-    assert_eq!(verify_public_key(0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
+    assert_eq!(verify_public_key(0, 0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
             "Pubkey mismatch, index 0/0, 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e vs. 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32");
+
     assert!(verify_public_key(
+        0,
         3,
         "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e"
     )
     .unwrap());
-    assert_eq!(verify_public_key(3, "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32").err().unwrap(),
+    assert_eq!(verify_public_key(0, 3, "0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32").err().unwrap(),
             "Pubkey mismatch, index 0/3, 0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32 vs. 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e");
+
+    assert!(verify_public_key(
+        1,
+        0,
+        "02eb2522e05e5b4656aec2e97c85b57c2a9e2c036f4843ae4a21322fe4e6aabcaf"
+    )
+    .unwrap());
+    assert_eq!(verify_public_key(1, 0, "03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e").err().unwrap(),
+            "Pubkey mismatch, index 1/0, 03b74dc470965932fc976459096526b08a0f939a95e4b72db8f9aadce18a08a72e vs. 02eb2522e05e5b4656aec2e97c85b57c2a9e2c036f4843ae4a21322fe4e6aabcaf");
 }
 
 #[test]
@@ -131,18 +149,18 @@ fn test_sign_schnorr_with_nonce() {
 
     let msg = "This is a message";
     let nonce = "0123450000000000006897528962743076432965432697856340567500000100";
-    let sig = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
+    let sig = sign_schnorr_with_nonce(msg, nonce, 0, 0).unwrap();
     let expected_sig = "ff4cb99e0a9be8ec7dea1e51904cf22f71717c19fc3e7dcbc8346eb28bebffbb892c4c41e05c2383efda00f5acc9c7f3622d88a90630cd62d49db598c8ce10b9";
     assert_eq!(sig.len(), 128);
     assert_eq!(sig.to_string(), expected_sig);
 
     // sign again
-    let sig2 = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
+    let sig2 = sign_schnorr_with_nonce(msg, nonce, 0, 0).unwrap();
     assert_eq!(sig2.to_string(), expected_sig);
 
     // sign with different nonce
     let nonce2 = "0123450000000000006897528962743076432965432697856340567500000199";
-    let sig3 = sign_schnorr_with_nonce(msg, nonce2, 0).unwrap();
+    let sig3 = sign_schnorr_with_nonce(msg, nonce2, 0, 0).unwrap();
     assert_eq!(sig3.to_string(), "4578740620e7a2c56eabea07c835dba35e832115930d023d0a7778652fbbf7d97a9f4a207dcb1456f1b0f57c4856085c32c79f4efce81cd276c272190aab5e3c");
 }
 
@@ -154,23 +172,25 @@ fn test_verify_schnorr() {
 
     // Constant signature
     let sig1 = "ff4cb99e0a9be8ec7dea1e51904cf22f71717c19fc3e7dcbc8346eb28bebffbb892c4c41e05c2383efda00f5acc9c7f3622d88a90630cd62d49db598c8ce10b9";
-    let verify_res = verify_schnorr(msg, &sig1, 0).unwrap();
+    let verify_res = verify_schnorr(msg, &sig1, 0, 0).unwrap();
     assert_eq!(verify_res, true);
 
     // Signature created here
     let nonce = "0123450000000000006897528962743076432965432697856340567500000100";
-    let sig = sign_schnorr_with_nonce(msg, nonce, 0).unwrap();
+    let sig = sign_schnorr_with_nonce(msg, nonce, 0, 0).unwrap();
 
-    let verify_res = verify_schnorr(msg, &sig, 0).unwrap();
+    let verify_res = verify_schnorr(msg, &sig, 0, 0).unwrap();
     assert_eq!(verify_res, true);
 
     // Verify with different key index
-    let verify_res = verify_schnorr(msg, &sig, 1).unwrap();
+    let verify_res = verify_schnorr(msg, &sig, 0, 1).unwrap();
+    assert_eq!(verify_res, false);
+    let verify_res = verify_schnorr(msg, &sig, 1, 0).unwrap();
     assert_eq!(verify_res, false);
 
     // Verify with a different message
     let msg2 = "This is ANOTHER message";
-    let verify_res = verify_schnorr(msg2, &sig, 0).unwrap();
+    let verify_res = verify_schnorr(msg2, &sig, 0, 0).unwrap();
     assert_eq!(verify_res, false);
 }
 
