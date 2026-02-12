@@ -38,26 +38,26 @@ pub fn get_xpub() -> PyResult<String> {
 
 /// Return a child public key (specified by its index).
 #[pyfunction]
-pub fn get_public_key(index: u32) -> PyResult<String> {
-    dlccryptlib::get_public_key(index).map_err(|e| PyErr::new::<PyException, _>(e))
+pub fn get_public_key(index4: u32, index5: u32) -> PyResult<String> {
+    dlccryptlib::get_public_key(index4, index5).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Return a child address (specified by index).
 #[pyfunction]
-pub fn get_address(index: u32) -> PyResult<String> {
-    dlccryptlib::get_address(index).map_err(|e| PyErr::new::<PyException, _>(e))
+pub fn get_address(index4: u32, index5: u32) -> PyResult<String> {
+    dlccryptlib::get_address(index4, index5).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Verify a child public key.
 #[pyfunction]
-pub fn verify_public_key(index: u32, pubkey: String) -> PyResult<bool> {
-    dlccryptlib::verify_public_key(index, &pubkey).map_err(|e| PyErr::new::<PyException, _>(e))
+pub fn verify_public_key(index4: u32, index5: u32, pubkey: String) -> PyResult<bool> {
+    dlccryptlib::verify_public_key(index4, index5, &pubkey).map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Sign a hash with a child private key (specified by index).
 #[pyfunction]
-pub fn sign_hash_ecdsa(hash: String, signer_index: u32, signer_pubkey: String) -> PyResult<String> {
-    dlccryptlib::sign_hash_ecdsa(&hash, signer_index, &signer_pubkey)
+pub fn sign_hash_ecdsa(hash: String, signer_index4: u32, signer_index5: u32, signer_pubkey: String) -> PyResult<String> {
+    dlccryptlib::sign_hash_ecdsa(&hash, signer_index4, signer_index5, &signer_pubkey)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
@@ -73,15 +73,15 @@ pub fn create_deterministic_nonce(
 
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
-pub fn sign_schnorr_with_nonce(msg: String, nonce_sec_hex: String, index: u32) -> PyResult<String> {
-    dlccryptlib::sign_schnorr_with_nonce(&msg, &nonce_sec_hex, index)
+pub fn sign_schnorr_with_nonce(msg: String, nonce_sec_hex: String, index4: u32, index5: u32) -> PyResult<String> {
+    dlccryptlib::sign_schnorr_with_nonce(&msg, &nonce_sec_hex, index4, index5)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Verify a Schnorr signature over a message, using a child key
 #[pyfunction]
-pub fn verify_schnorr(msg: String, signature_hex: String, index: u32) -> PyResult<bool> {
-    dlccryptlib::verify_schnorr(&msg, &signature_hex, index)
+pub fn verify_schnorr(msg: String, signature_hex: String, index4: u32, index5: u32) -> PyResult<bool> {
+    dlccryptlib::verify_schnorr(&msg, &signature_hex, index4, index5)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
@@ -105,7 +105,8 @@ pub fn create_cet_adaptor_sigs(
     num_cets: u64,
     digit_string_template: String,
     oracle_pubkey: String,
-    signing_key_index: u32,
+    signing_key_index4: u32,
+    signing_key_index5: u32,
     signing_pubkey: String,
     nonces: String,
     interval_wildcards: String,
@@ -116,7 +117,8 @@ pub fn create_cet_adaptor_sigs(
         num_cets,
         &digit_string_template,
         &oracle_pubkey,
-        signing_key_index,
+        signing_key_index4,
+        signing_key_index5,
         &signing_pubkey,
         &nonces,
         &interval_wildcards,
@@ -155,7 +157,8 @@ pub fn verify_cet_adaptor_sigs(
 /// Perform final signing of a CET
 #[pyfunction]
 pub fn create_final_cet_sigs(
-    signing_key_index: u32,
+    signing_key_index4: u32,
+    signing_key_index5: u32,
     signing_pubkey: String,
     other_pubkey: String,
     num_digits: u8,
@@ -165,7 +168,8 @@ pub fn create_final_cet_sigs(
     other_adaptor_signature: String,
 ) -> PyResult<String> {
     dlccryptlib::create_final_cet_sigs(
-        signing_key_index,
+        signing_key_index4,
+        signing_key_index5,
         &signing_pubkey,
         &other_pubkey,
         num_digits,
