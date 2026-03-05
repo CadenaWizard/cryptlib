@@ -106,11 +106,11 @@ impl HDWalletStorage {
     }
 
     /// Return a child keypair
-    pub(crate) fn get_child_keypair(&self, index: u32) -> Result<Keypair, String> {
+    pub(crate) fn get_child_keypair(&self, index4: u32, index5: u32) -> Result<Keypair, String> {
         let wallet = self.get_cached_hdwallet_info()?;
         // derive
-        let index_4 = ChildNumber::from_normal_idx(0).unwrap();
-        let index_5 = ChildNumber::from_normal_idx(index).unwrap();
+        let index_4 = ChildNumber::from_normal_idx(index4).unwrap();
+        let index_5 = ChildNumber::from_normal_idx(index5).unwrap();
         let xpriv_5 = wallet
             .xpriv
             .derive_priv(&self.secp, &vec![index_4, index_5])
@@ -120,14 +120,18 @@ impl HDWalletStorage {
     }
 
     /// Return a child public key
-    pub(crate) fn get_child_public_key(&self, index: u32) -> Result<PublicKey, String> {
-        let keypair = self.get_child_keypair(index)?;
+    pub(crate) fn get_child_public_key(
+        &self,
+        index4: u32,
+        index5: u32,
+    ) -> Result<PublicKey, String> {
+        let keypair = self.get_child_keypair(index4, index5)?;
         Ok(keypair.public_key())
     }
 
     /// Return a child address
-    pub(crate) fn get_address(&self, index: u32) -> Result<Address, String> {
-        let pubkey = self.get_child_public_key(index)?;
+    pub(crate) fn get_address(&self, index4: u32, index5: u32) -> Result<Address, String> {
+        let pubkey = self.get_child_public_key(index4, index5)?;
         let ck = bitcoin::CompressedPublicKey(pubkey);
         let address = Address::p2wpkh(&ck, self.network());
         Ok(address)
@@ -135,17 +139,19 @@ impl HDWalletStorage {
 
     pub(crate) fn verify_child_public_key_intern(
         &self,
-        index: u32,
+        index4: u32,
+        index5: u32,
         pubkey: &PublicKey,
         print_entity: &str,
     ) -> Result<bool, String> {
-        let keypair = self.get_child_keypair(index)?;
+        let keypair = self.get_child_keypair(index4, index5)?;
         // verify pubkey
         if &keypair.public_key() != pubkey {
             return Err(format!(
-                "{} mismatch, index {}, {} vs. {}",
+                "{} mismatch, index {}/{}, {} vs. {}",
                 print_entity,
-                index,
+                index4,
+                index5,
                 pubkey,
                 keypair.public_key()
             ));

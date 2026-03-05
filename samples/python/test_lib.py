@@ -9,9 +9,9 @@ print('Library initialized, xpub', xpub)
 
 xpub = dlccryptlib_py.get_xpub()
 print('Xpub', xpub)
-pubkey0 = dlccryptlib_py.get_public_key(0)
+pubkey0 = dlccryptlib_py.get_public_key(0, 0)
 print('Pubkey 0', pubkey0)
-address0 = dlccryptlib_py.get_address(0)
+address0 = dlccryptlib_py.get_address(0, 0)
 print('Address 0', address0)
 
 event_id = "event001"
@@ -25,11 +25,11 @@ print('Nonce 1 (pub, sec)', nonce1_pub, nonce1_sec)
 nonce2_arr = dlccryptlib_py.create_deterministic_nonce(event_id, 2)
 
 # Sign the event id with nonce1
-sig = dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce1_sec, 0)
+sig = dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce1_sec, 0, 0)
 print('Signature:  ', sig)
 
 # Sign again (same nonce)
-print('Sign again: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce1_sec, 0))
+print('Sign again: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce1_sec, 0, 0))
 
 # Sign with different nonce
-print('Sign with other nonce: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce2_arr[0], 0))
+print('Sign with other nonce: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce2_arr[0], 0, 0))

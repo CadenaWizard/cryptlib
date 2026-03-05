@@ -66,27 +66,31 @@ impl Lib {
         }
     }
 
-    fn get_child_keypair(&self, index: u32) -> Result<Keypair, String> {
+    fn get_child_keypair(&self, index4: u32, index5: u32) -> Result<Keypair, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_child_keypair(index)
+            hd_wallet.get_child_keypair(index4, index5)
         } else {
             Err("Library not initialized!".to_string())
         }
     }
 
     /// Return a child public key
-    pub(crate) fn get_child_public_key(&self, index: u32) -> Result<PublicKey, String> {
+    pub(crate) fn get_child_public_key(
+        &self,
+        index4: u32,
+        index5: u32,
+    ) -> Result<PublicKey, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_child_public_key(index)
+            hd_wallet.get_child_public_key(index4, index5)
         } else {
             Err("Library not initialized!".to_string())
         }
     }
 
     /// Return a child address
-    pub(crate) fn get_address(&self, index: u32) -> Result<Address, String> {
+    pub(crate) fn get_address(&self, index4: u32, index5: u32) -> Result<Address, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.get_address(index)
+            hd_wallet.get_address(index4, index5)
         } else {
             Err("Library not initialized!".to_string())
         }
@@ -94,12 +98,13 @@ impl Lib {
 
     fn verify_child_public_key_intern(
         &self,
-        index: u32,
+        index4: u32,
+        index5: u32,
         pubkey: &PublicKey,
         print_entity: &str,
     ) -> Result<bool, String> {
         if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet.verify_child_public_key_intern(index, pubkey, print_entity)
+            hd_wallet.verify_child_public_key_intern(index4, index5, pubkey, print_entity)
         } else {
             Err("Library not initialized!".to_string())
         }
@@ -108,21 +113,24 @@ impl Lib {
     /// Verify a child public key
     pub(crate) fn verify_child_public_key(
         &self,
-        index: u32,
+        index4: u32,
+        index5: u32,
         pubkey: &PublicKey,
     ) -> Result<bool, String> {
-        self.verify_child_public_key_intern(index, pubkey, "Pubkey")
+        self.verify_child_public_key_intern(index4, index5, pubkey, "Pubkey")
     }
 
     pub(crate) fn sign_hash_ecdsa(
         &self,
         hash: &[u8; 32],
-        index: u32,
+        index4: u32,
+        index5: u32,
         signer_pubkey: &PublicKey,
     ) -> Result<Vec<u8>, String> {
-        let keypair = self.get_child_keypair(index)?;
+        let keypair = self.get_child_keypair(index4, index5)?;
         // verify pubkey
-        let _ = self.verify_child_public_key_intern(index, signer_pubkey, "Signer pubkey")?;
+        let _ =
+            self.verify_child_public_key_intern(index4, index5, signer_pubkey, "Signer pubkey")?;
 
         sign_hash_ecdsa_with_key(&self.secp, hash, &keypair.secret_key())
     }
@@ -145,9 +153,10 @@ impl Lib {
         &self,
         msg: &str,
         nonce_sec: &[u8; 32],
-        index: u32,
+        index4: u32,
+        index5: u32,
     ) -> Result<SchnorrSignature, String> {
-        let kp = self.get_child_keypair(index)?;
+        let kp = self.get_child_keypair(index4, index5)?;
         sign_schnorr_with_nonce_sec(&self.secp, &kp, msg, nonce_sec)
     }
 
@@ -156,9 +165,13 @@ impl Lib {
         &self,
         msg: &str,
         signature: &SchnorrSignature,
-        index: u32,
+        index4: u32,
+        index5: u32,
     ) -> Result<bool, String> {
-        let pubkey = self.get_child_public_key(index)?.x_only_public_key().0;
+        let pubkey = self
+            .get_child_public_key(index4, index5)?
+            .x_only_public_key()
+            .0;
         verify_schnorr(&self.secp, signature, &pubkey, msg)
     }
 
@@ -179,17 +192,19 @@ impl Lib {
         num_cets: u64,
         digit_string_template: &str,
         oracle_pubkey: &PublicKey,
-        signing_key_index: u32,
+        signing_key_index4: u32,
+        signing_key_index5: u32,
         signing_pubkey: &PublicKey,
         nonces: &Vec<PublicKey>,
         interval_wildcards: &Vec<String>,
         sighashes: &Vec<[u8; 32]>,
     ) -> Result<Vec<EcdsaAdaptorSignature>, String> {
         // Prepare signing key
-        let sign_keypair = self.get_child_keypair(signing_key_index)?;
+        let sign_keypair = self.get_child_keypair(signing_key_index4, signing_key_index5)?;
         // Verify signing pubkey
         let _ = self.verify_child_public_key_intern(
-            signing_key_index,
+            signing_key_index4,
+            signing_key_index5,
             signing_pubkey,
             "Signer pubkey",
         )?;
@@ -236,7 +251,8 @@ impl Lib {
     /// Create signatures on a CET when outcome signatures are available
     pub fn create_final_cet_sigs(
         &self,
-        signing_key_index: u32,
+        signing_key_index4: u32,
+        signing_key_index5: u32,
         signing_pubkey: &PublicKey,
         other_pubkey: &PublicKey,
         num_digits: u8,
@@ -246,10 +262,11 @@ impl Lib {
         other_adaptor_signature: &EcdsaAdaptorSignature,
     ) -> Result<(Vec<u8>, Vec<u8>), String> {
         // Prepare signing key
-        let sign_keypair = self.get_child_keypair(signing_key_index)?;
+        let sign_keypair = self.get_child_keypair(signing_key_index4, signing_key_index5)?;
         // verify signer pubkey
         let _ = self.verify_child_public_key_intern(
-            signing_key_index,
+            signing_key_index4,
+            signing_key_index5,
             signing_pubkey,
             "Signer pubkey",
         )?;
