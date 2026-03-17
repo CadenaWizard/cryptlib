@@ -1,9 +1,8 @@
 use dlccryptlib;
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyException;
+use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
-
 
 // ##### Facade functions for easy Python invocations (pyo3/maturin)
 
@@ -51,12 +50,18 @@ pub fn get_address(index4: u32, index5: u32) -> PyResult<String> {
 /// Verify a child public key.
 #[pyfunction]
 pub fn verify_public_key(index4: u32, index5: u32, pubkey: String) -> PyResult<bool> {
-    dlccryptlib::verify_public_key(index4, index5, &pubkey).map_err(|e| PyErr::new::<PyException, _>(e))
+    dlccryptlib::verify_public_key(index4, index5, &pubkey)
+        .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Sign a hash with a child private key (specified by index).
 #[pyfunction]
-pub fn sign_hash_ecdsa(hash: String, signer_index4: u32, signer_index5: u32, signer_pubkey: String) -> PyResult<String> {
+pub fn sign_hash_ecdsa(
+    hash: String,
+    signer_index4: u32,
+    signer_index5: u32,
+    signer_pubkey: String,
+) -> PyResult<String> {
     dlccryptlib::sign_hash_ecdsa(&hash, signer_index4, signer_index5, &signer_pubkey)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
@@ -73,14 +78,24 @@ pub fn create_deterministic_nonce(
 
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
-pub fn sign_schnorr_with_nonce(msg: String, nonce_sec_hex: String, index4: u32, index5: u32) -> PyResult<String> {
+pub fn sign_schnorr_with_nonce(
+    msg: String,
+    nonce_sec_hex: String,
+    index4: u32,
+    index5: u32,
+) -> PyResult<String> {
     dlccryptlib::sign_schnorr_with_nonce(&msg, &nonce_sec_hex, index4, index5)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
 /// Verify a Schnorr signature over a message, using a child key
 #[pyfunction]
-pub fn verify_schnorr(msg: String, signature_hex: String, index4: u32, index5: u32) -> PyResult<bool> {
+pub fn verify_schnorr(
+    msg: String,
+    signature_hex: String,
+    index4: u32,
+    index5: u32,
+) -> PyResult<bool> {
     dlccryptlib::verify_schnorr(&msg, &signature_hex, index4, index5)
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
@@ -201,4 +216,3 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(create_final_cet_sigs, m)?)?;
     Ok(())
 }
-
