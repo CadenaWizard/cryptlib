@@ -10,6 +10,9 @@ use crate::{
 };
 use bitcoin::hex::FromHex;
 use bitcoin::secp256k1::PublicKey;
+use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
+use secp256k1_zkp::EcdsaAdaptorSignature;
+use std::str::FromStr;
 
 const DUMMY_ENTROPY_STR: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 const NETWORK_MAINNET: &str = "bitcoin";
@@ -274,7 +277,7 @@ fn test_create_cet_adaptor_sigs() {
 }
 
 #[test]
-fn test_verify_cet_adaptor_sigs() {
+fn test_verify_cet_adaptor_sigs_full() {
     let mut lib = Lib::new_empty();
     let _xpub = lib.init_with_entropy(&dummy_bytes32(0).to_vec(), DEFAULT_NETWORK);
 
@@ -333,7 +336,50 @@ fn test_verify_cet_adaptor_sigs() {
 }
 
 #[test]
-fn test_create_final_cet_sigs() {
+fn test_verify_cet_adaptor_sigs() {
+    let nonces = vec![
+        create_dummy_pubkey(0),
+        create_dummy_pubkey(1),
+        create_dummy_pubkey(2),
+        create_dummy_pubkey(3),
+        create_dummy_pubkey(4),
+        create_dummy_pubkey(5),
+    ];
+    let interval_wildcards = vec![
+        "001****".to_string(),
+        "002****".to_string(),
+        "003****".to_string(),
+    ];
+    let sighashes = vec![dummy_bytes32(0), dummy_bytes32(1), dummy_bytes32(2)];
+    let oracle_pubkey = create_dummy_pubkey(9);
+    let my_pubkey =
+        PublicKey::from_str("0298720ece754e377af1b2716256e63c2e2427ff6ebdc66c2071c43ae80132ca32")
+            .unwrap();
+    let adaptor_sigs_vec = vec![
+        EcdsaAdaptorSignature::from_str("02c601b771f535d1df127de6f67289d783d0af9237c6330b95f19b8ced14c04ecf039708a6953eb8f02353b43858f11f58c03d0b6f02e2dac91389694168e8f52f5fc6e00105830f4fea83a1e68da30b2ebd382a64e8c5548227a58b104091f863a28bb081f94ac28ce937cbb3e3c0fe6c0281672d3954025ee53eb4e3d6bc771cbde7494187bc55a29a81be71c63d7e7bff714a2623e08fc00d7cac7583cd9685da").unwrap(),
+        EcdsaAdaptorSignature::from_str("02b1eaaa7be0e71c940bcb4fb34a12dad37c870774d0530a2b7d800bbed708b42e03d3934b492ff04e29cb7e490d1bb5b98ff7b6b0449f3ca80372845b94c70ed30e83a05ecccf8ab354763265bd65a6ed6b54808a3145341edfd4bc15a980e5b0089cafa97d0f1425d46162d5958e7da17dac4251ad7421a9b31de1d89ccf4e92d1328457e02cf698884d2539d6defe02e924c05e967ddef72162ee3a018a959a6a").unwrap(),
+        EcdsaAdaptorSignature::from_str("02c713d865019906ea3588814896311993a7417b5cb51746f811632bfa7f04b69f02e6d18c4dd8b873ebd3948429ece734f548d38b7f699839c6805a434422a8154bdac5695f9f9921fc8b087a976e36bad9135b6a4290bf1018a7879c594fd4f9fd39b7e9a953a0befab3bcc73e3ffd16fefd00620221954d1618a7220dc784d2059900add8d84745fc34d6fc6ff57b05853b62ad988dcaeb2324d4b5b2c15e4643").unwrap(),
+    ];
+
+    let lib = Lib::new_empty();
+    // Verify the signatures
+    let _res = lib
+        .verify_cet_adaptor_sigs(
+            6,
+            3,
+            "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}",
+            &oracle_pubkey,
+            &my_pubkey,
+            &nonces,
+            &interval_wildcards,
+            &sighashes,
+            &adaptor_sigs_vec,
+        )
+        .unwrap();
+}
+
+#[test]
+fn test_create_final_cet_sigs_full() {
     let event_id = "btcusd1741474920";
     let digits_template_string = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
     let digits = 4 as u8;
@@ -417,6 +463,55 @@ fn test_create_final_cet_sigs() {
     );
 
     let final_sigs = lib1
+        .create_final_cet_sigs(
+            0,
+            0,
+            &my_pubkey,
+            &other_pubkey,
+            digits,
+            &oracle_signatures,
+            final_cet_wildcard,
+            &sighash,
+            &other_adaptor_sig,
+        )
+        .unwrap();
+    let sig_of_other = final_sigs.0;
+    let my_sig = final_sigs.1;
+
+    // verify_signatures
+    let verif_res1 = verify_ecdsa_signature(&sighash, &sig_of_other, &other_pubkey, true).unwrap();
+    assert!(verif_res1);
+    let verif_res2 = verify_ecdsa_signature(&sighash, &my_sig, &my_pubkey, true).unwrap();
+    assert!(verif_res2);
+}
+
+#[test]
+fn test_create_final_cet_sigs() {
+    let digits = 4 as u8;
+    let final_cet_wildcard = "9534";
+    let sighash = dummy_bytes32(7);
+    let oracle_signatures = vec![
+        SchnorrSignature::from_str("829589a7db8530b521577ce5b9560e31cb29b943927b417c580ec3b6e57317a91e36a673186742bd75a85f6751473fd10155f44fec71a62e95ca6e2f6a436de6").unwrap(),
+        SchnorrSignature::from_str("78d6b6808d5370da62c9304f66415c1f9f408a2ee9d95a9dc836512218a7b04fd67ccbe7eefd9cd96c396a64b5ddc8e6a42d82e8e753ced18e162d238787da50").unwrap(),
+        SchnorrSignature::from_str("7c14675c2bd2e728e5760d5017d4ae2b22a4a33193689654e5eb13111ab7f491f5889b410410014ddc5bef26d55b3cfd6f3c0bec338fc8c29edc323da3e301e1").unwrap(),
+        SchnorrSignature::from_str("e7657c7d006d27b248642974875348b41299690a6415bc019ac71e6988434daaf722c5e3e015c26180d7a5e5543f6668297d188536e98b9de6313df4c5ca5f60").unwrap(),
+    ];
+    let other_pubkey =
+        PublicKey::from_str("02142c5af97c4afd91bea47ac47e56fad2935dcacc04b3ffa69e5ff7760cbd07ed")
+            .unwrap();
+    let other_adaptor_sig = EcdsaAdaptorSignature::from_str("0287b5a935d349eca94eaa9c8362abcde778b215754a195163d519317a5df551ef03b43cc062377901a906fb6c9c67837def8f21bc0117159724a1047c25ef97dde2ebff6c23fc0fe43c59f1771e4ed9c44e27f4e03d04f57287e15e2646563d9c1fb152e0e137bb990b8b14f16006d8493964303ac265c108c2c9ac10e3a7917a2e86ba49455802a18c72c57d8e660f982984f5bd0e792a68f2b2c2c7a4882604d4").unwrap();
+
+    let mut lib = Lib::new_empty();
+    let _xpub = lib
+        .init_with_entropy(&dummy_bytes32(1).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    let my_pubkey = lib.get_child_public_key(0, 0).unwrap();
+    assert_eq!(
+        my_pubkey.to_string(),
+        "035bcac7323e9971268213a188d8268277abcd962cdf096e68e2b58c228216f104"
+    );
+
+    let final_sigs = lib
         .create_final_cet_sigs(
             0,
             0,
