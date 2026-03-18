@@ -498,3 +498,58 @@ pub fn create_final_cet_signatures<S: Signing>(
 
     Ok((adapted_sig, my_sig))
 }
+
+/// Decrypt a signature on a CET when outcome signatures are available.
+/// Return the decrypted signature.
+pub fn create_final_cet_signature(
+    pubkey: &PublicKey,
+    num_digits: u8,
+    oracle_signatures: &Vec<SchnorrSignature>,
+    cet_value_wildcard: &str,
+    cet_sighash: &[u8; 32],
+    adaptor_signature: &EcdsaAdaptorSignature,
+) -> Result<Vec<u8>, String> {
+    // Decompose oracle signatures
+    if oracle_signatures.len() != num_digits as usize {
+        return Err(format!(
+            "Wrong number of oracle signatures {} {}",
+            oracle_signatures.len(),
+            num_digits
+        ));
+    }
+    debug_assert_eq!(oracle_signatures.len(), num_digits as usize);
+    let wildcard = cet_value_wildcard.as_bytes();
+    let mut adaptor_secret_vec = Vec::new();
+    for d in 0..num_digits {
+        let ch = wildcard[d as usize];
+        if ch >= 48 && ch <= 57 {
+            let (_nonce, secret_value) = schnorrsig_decompose(&oracle_signatures[d as usize])
+                .map_err(|e| format!("Error decomposing Schnorr signature {}", e.to_string()))?;
+            let adaptor_secret = SecretKey::from_slice(secret_value).map_err(|e| {
+                format!(
+                    "Error retrieving adaptor secret from signature {}",
+                    e.to_string()
+                )
+            })?;
+            adaptor_secret_vec.push(adaptor_secret);
+        }
+    }
+    let adaptor_secret_aggregate = aggregate_secret_values(&adaptor_secret_vec)?;
+
+    // Adaptor signature, from the other
+    let mut adapted_sig = adaptor_signature
+        .decrypt(&adaptor_secret_aggregate)
+        .map_err(|e| format!("Error in adaptor signature decryption {}", e.to_string()))?
+        .serialize_der()
+        .to_vec();
+    adapted_sig.push(EcdsaSighashType::All as u8);
+    // verify signature
+    let _res = verify_ecdsa_signature(cet_sighash, &adapted_sig, &pubkey, true).map_err(|e| {
+        format!(
+            "Adaptor-derived signature verification failed {}",
+            e.to_string()
+        )
+    })?;
+
+    Ok(adapted_sig)
+}

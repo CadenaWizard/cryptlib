@@ -8,7 +8,7 @@ use crate::{
     init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
     verify_schnorr, Lib,
 };
-use bitcoin::hex::FromHex;
+use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::PublicKey;
 use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
 use secp256k1_zkp::EcdsaAdaptorSignature;
@@ -532,4 +532,122 @@ fn test_create_final_cet_sigs() {
     assert!(verif_res1);
     let verif_res2 = verify_ecdsa_signature(&sighash, &my_sig, &my_pubkey, true).unwrap();
     assert!(verif_res2);
+}
+
+#[test]
+fn test_create_final_cet_sig_full() {
+    let event_id = "btcusd1741474920";
+    let digits_template_string = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
+    let digits = 4 as u8;
+    let final_cet_wildcard = "9534";
+    let sighash = dummy_bytes32(7);
+
+    // First preparation: create oracle signatures
+    let mut lib_ora = Lib::new_empty();
+    let _xpub = lib_ora.init_with_entropy(&dummy_bytes32(3).to_vec(), DEFAULT_NETWORK);
+    let oracle_pubkey = lib_ora.get_child_public_key(0, 0).unwrap();
+    assert_eq!(
+        oracle_pubkey.to_string(),
+        "020a5e571a47cc259d3cc0454a8b7e58bba16e01156bb72d0ce490823f51117cce"
+    );
+
+    // Prepare nonces
+    let mut nonces_sec_vec = Vec::new();
+    let mut nonces_pub_vec = Vec::new();
+    let mut nonces = String::new();
+    for i in 0..(digits as usize) {
+        let (nsec, npub) = lib_ora
+            .create_deterministic_nonce(event_id, i as u32)
+            .unwrap();
+        nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
+        nonces_pub_vec.push(npub.clone());
+        nonces += &format!("{} ", npub);
+    }
+    assert_eq!(nonces, "03829589a7db8530b521577ce5b9560e31cb29b943927b417c580ec3b6e57317a9 0278d6b6808d5370da62c9304f66415c1f9f408a2ee9d95a9dc836512218a7b04f 027c14675c2bd2e728e5760d5017d4ae2b22a4a33193689654e5eb13111ab7f491 02e7657c7d006d27b248642974875348b41299690a6415bc019ac71e6988434daa ");
+
+    let mut oracle_signatures = Vec::new();
+    for i in 0..(digits as usize) {
+        let digit_value = final_cet_wildcard.chars().collect::<Vec<_>>()[i as usize];
+        let digit_string = digits_template_string
+            .replace("{digit_index}", &format!("{}", i))
+            .replace("{digit_outcome}", &format!("{}", digit_value));
+        let sig = lib_ora
+            .sign_schnorr_with_nonce(&digit_string, &nonces_sec_vec[i], 0, 0)
+            .unwrap();
+        oracle_signatures.push(sig);
+    }
+
+    let mut lib1 = Lib::new_empty();
+    let _xpub = lib1
+        .init_with_entropy(&dummy_bytes32(1).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    let my_pubkey = lib1.get_child_public_key(0, 0).unwrap();
+    assert_eq!(
+        my_pubkey.to_string(),
+        "035bcac7323e9971268213a188d8268277abcd962cdf096e68e2b58c228216f104"
+    );
+
+    // Create adaptor sig
+    // only use one CET
+    let adaptor_sigs_vec = lib1
+        .create_cet_adaptor_sigs(
+            digits,
+            1, // num_cets
+            digits_template_string,
+            &oracle_pubkey,
+            0,
+            0,
+            &my_pubkey,
+            &nonces_pub_vec,
+            &vec![final_cet_wildcard.to_string()], // interval_wildcards
+            &vec![sighash],
+        )
+        .unwrap();
+    let adaptor_sig = adaptor_sigs_vec[0];
+    // adator sig is variable, cannot assert
+    assert_eq!(adaptor_sig.to_string().len(), 324);
+
+    // And now decode the CET signature
+    let my_final_sig = lib1
+        .create_final_cet_sig(
+            &my_pubkey,
+            digits,
+            &oracle_signatures,
+            final_cet_wildcard,
+            &sighash,
+            &adaptor_sig,
+        )
+        .unwrap();
+    // Result is variable, cannot assert
+    assert!(my_final_sig.len() >= 70 && my_final_sig.len() <= 72);
+}
+
+#[test]
+fn test_create_final_cet_sig() {
+    let digits = 4 as u8;
+    let final_cet_wildcard = "9534";
+    let sighash = dummy_bytes32(7);
+    let oracle_signatures = vec![
+        SchnorrSignature::from_str("829589a7db8530b521577ce5b9560e31cb29b943927b417c580ec3b6e57317a91e36a673186742bd75a85f6751473fd10155f44fec71a62e95ca6e2f6a436de6").unwrap(),
+        SchnorrSignature::from_str("78d6b6808d5370da62c9304f66415c1f9f408a2ee9d95a9dc836512218a7b04fd67ccbe7eefd9cd96c396a64b5ddc8e6a42d82e8e753ced18e162d238787da50").unwrap(),
+        SchnorrSignature::from_str("7c14675c2bd2e728e5760d5017d4ae2b22a4a33193689654e5eb13111ab7f491f5889b410410014ddc5bef26d55b3cfd6f3c0bec338fc8c29edc323da3e301e1").unwrap(),
+        SchnorrSignature::from_str("e7657c7d006d27b248642974875348b41299690a6415bc019ac71e6988434daaf722c5e3e015c26180d7a5e5543f6668297d188536e98b9de6313df4c5ca5f60").unwrap(),
+    ];
+    let my_pubkey =
+        PublicKey::from_str("035bcac7323e9971268213a188d8268277abcd962cdf096e68e2b58c228216f104")
+            .unwrap();
+    let adaptor_sig = EcdsaAdaptorSignature::from_str("02b916af8ad219724712ec349ed2a0cb200efe228b8ad4bcbe048aa41d687b07c5039325102a25ead4dd1ce4cccd0fe49d444c041a2f230ee0469eb3f3cf34efe41deb736f677a9fbd248e8fcd6afae74c418fc8f791075f62d9ec66f03a761be15b7e803a66e5b57db2920cfaf5343bd68027ca01689967aa316c2af9ca75c35e68338436fb24963572af2cc762b8666653645282569b16997324cf884375ca6684").unwrap();
+
+    let lib = Lib::new_empty();
+    let final_sig = lib
+        .create_final_cet_sig(
+            &my_pubkey,
+            digits,
+            &oracle_signatures,
+            final_cet_wildcard,
+            &sighash,
+            &adaptor_sig,
+        )
+        .unwrap();
+    assert_eq!(final_sig.to_lower_hex_string(), "3045022100b916af8ad219724712ec349ed2a0cb200efe228b8ad4bcbe048aa41d687b07c502202fe73c65c04abd4394375f4225ae11e0dfad77362898497e4d79b0df0b2b8fdf01");
 }
