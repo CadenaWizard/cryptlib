@@ -424,6 +424,54 @@ pub fn create_final_cet_sigs(
     Ok(sigs)
 }
 
+pub fn create_final_cet_sig(
+    pubkey_str: &str,
+    num_digits: u8,
+    oracle_signatures_str: &str,
+    cet_value_wildcard: &str,
+    cet_sighash_str: &str,
+    adaptor_signature_str: &str,
+) -> Result<String, String> {
+    let pubkey =
+        pubkey_from_hex(pubkey_str).map_err(|e| format!("Failed to parse other pubkey {}", e))?;
+
+    let sigs_split: Vec<_> = oracle_signatures_str.split(" ").collect();
+    let mut sigs = Vec::<SchnorrSignature>::with_capacity(sigs_split.len());
+    for i in 0..sigs_split.len() {
+        let sig_hex = sigs_split[i].trim();
+        if sig_hex.len() > 0 {
+            let sig = schnorr_sig_from_hex(&sig_hex)
+                .map_err(|e| format!("Failed to parse element {} {}", i, e))?;
+            sigs.push(sig);
+        }
+    }
+    if sigs.len() != num_digits as usize {
+        return Err(format!(
+            "Wrong number of signatures {} {}",
+            sigs.len(),
+            num_digits
+        ));
+    }
+
+    let cet_sighash =
+        hash_from_hex(cet_sighash_str).map_err(|e| format!("Failed to parse sighash {}", e))?;
+
+    let adaptor_signature_bin = Vec::from_hex(adaptor_signature_str)
+        .map_err(|e| format!("Failed to parse adaptor sig {}", e))?;
+    let adaptor_signature = EcdsaAdaptorSignature::from_slice(&adaptor_signature_bin)
+        .map_err(|e| format!("Failed to parse adaptor sig {}", e))?;
+    let sig = global_lib().read().unwrap().create_final_cet_sig(
+        &pubkey,
+        num_digits,
+        &sigs,
+        cet_value_wildcard,
+        &cet_sighash,
+        &adaptor_signature,
+    )?;
+
+    Ok(sig.to_lower_hex_string())
+}
+
 // ##### Facade functions for C-style-interface invocations
 
 /// Initialize the library, provide the secret as parameter. Return the XPUB.

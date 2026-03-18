@@ -196,6 +196,28 @@ pub fn create_final_cet_sigs(
     .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Perform final signing of a CET, decrypt a signature when outcome signatures are available.
+/// Return the decrypted signature.
+#[pyfunction]
+pub fn create_final_cet_sig(
+    pubkey: String,
+    num_digits: u8,
+    oracle_signatures: String,
+    cet_value_wildcard: String,
+    cet_sighash: String,
+    adaptor_signature: String,
+) -> PyResult<String> {
+    dlccryptlib::create_final_cet_sig(
+        &pubkey,
+        num_digits,
+        &oracle_signatures,
+        &cet_value_wildcard,
+        &cet_sighash,
+        &adaptor_signature,
+    )
+    .map_err(|e| PyErr::new::<PyException, _>(e))
+}
+
 #[pymodule]
 fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
@@ -214,5 +236,6 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(create_cet_adaptor_sigs, m)?)?;
     m.add_function(wrap_pyfunction!(verify_cet_adaptor_sigs, m)?)?;
     m.add_function(wrap_pyfunction!(create_final_cet_sigs, m)?)?;
+    m.add_function(wrap_pyfunction!(create_final_cet_sig, m)?)?;
     Ok(())
 }
