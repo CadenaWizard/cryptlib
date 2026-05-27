@@ -559,6 +559,33 @@ pub extern "C" fn create_deterministic_nonce_c(event_id: *const c_char, index: u
     }
 }
 
+// Additional C exports for Flutter wallet operations
+#[no_mangle]
+pub extern "C" fn get_xpub_c() -> *mut c_char {
+    match get_xpub() {
+        Ok(xpub) => CString::new(xpub).unwrap().into_raw(),
+        Err(e) => error_as_cstr_prefix(e),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_address_c(index: u32) -> *mut c_char {
+    match get_address(index) {
+        Ok(address) => CString::new(address).unwrap().into_raw(),
+        Err(e) => error_as_cstr_prefix(e),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn free_cstring(s: *mut c_char) {
+    unsafe {
+        if s.is_null() {
+            return;
+        }
+        let _ = CString::from_raw(s);
+    }
+}
+
 // Return error with an "ERROR: " prefix, as a C string
 fn error_as_cstr_prefix(error: String) -> *mut c_char {
     CString::new(format!("ERROR: {}", error))
