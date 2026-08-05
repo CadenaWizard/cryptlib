@@ -7,9 +7,15 @@ use crate::secret_entropy_storage::SecretEntropyStore;
 use bip39::Mnemonic;
 use bitcoin::bip32::{ChildNumber, DerivationPath, Xpriv, Xpub};
 use bitcoin::key::{Keypair, Secp256k1};
-use bitcoin::secp256k1::{All, PublicKey};
+use bitcoin::secp256k1::{All, PublicKey, SecretKey};
 use bitcoin::{Address, Network};
 use std::str::FromStr;
+
+/// Reserved hardened child index (the maximum possible), used to derive a secret
+/// exclusively for nonce generation. Being hardened and set apart from the low,
+/// normal indices used for signing/address keys, it cannot be confused or reused
+/// with any actual signing key, while still depending on the master secret.
+const NONCE_SEED_HARDENED_INDEX: u32 = (1 << 31) - 1;
 
 /// Store a HD wallet.
 /// Built on top of SecretEntropyStore, but adds HD wallet functionality
@@ -24,6 +30,9 @@ pub(crate) struct HDWalletInfo {
     xpriv: Xpriv,
     // The level-3 account XPUB
     pub xpub: Xpub,
+    // Secret, derived from the master key at a reserved hardened index, used as
+    // key material for nonce generation (never used for signing/addresses)
+    nonce_seed: SecretKey,
 }
 
 impl HDWalletStorage {
@@ -65,6 +74,14 @@ impl HDWalletStorage {
         Ok(wallet.xpub)
     }
 
+    /// Return the master-secret-derived seed used for nonce generation.
+    /// This is never used for signing or addresses, only as key material to
+    /// keep generated nonces unpredictable to anyone without the master secret.
+    pub(crate) fn get_nonce_seed(&self) -> Result<SecretKey, String> {
+        let wallet = self.get_cached_hdwallet_info()?;
+        Ok(wallet.nonce_seed)
+    }
+
     pub(crate) fn network(&self) -> Network {
         self.entropy_store.network()
     }
@@ -83,9 +100,16 @@ impl HDWalletStorage {
             .expect("Derive level3 xpriv");
         let xpub_level_3 = Xpub::from_priv(&self.secp, &xpriv_level_3);
 
+        let nonce_seed_index = ChildNumber::from_hardened_idx(NONCE_SEED_HARDENED_INDEX)
+            .expect("Creating nonce seed ChildNumber");
+        let nonce_seed_xpriv = xpriv_level_3
+            .derive_priv(&self.secp, &vec![nonce_seed_index])
+            .expect("Derive nonce seed xpriv");
+
         Ok(HDWalletInfo {
             xpriv: xpriv_level_3,
             xpub: xpub_level_3,
+            nonce_seed: nonce_seed_xpriv.private_key,
         })
     }
 
