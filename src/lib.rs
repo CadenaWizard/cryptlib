@@ -99,6 +99,14 @@ pub fn sign_hash_ecdsa(
     Ok(sig.to_lower_hex_string())
 }
 
+pub fn create_nonce(event_id: &str, index: u32) -> Result<(String, String), String> {
+    let (sk, pk) = global_lib()
+        .read()
+        .unwrap()
+        .create_nonce(event_id, index)?;
+    Ok((sk, pk.to_string()))
+}
+
 pub fn create_deterministic_nonce(event_id: &str, index: u32) -> Result<(String, String), String> {
     let (sk, pk) = global_lib()
         .read()
@@ -603,6 +611,25 @@ pub extern "C" fn create_cet_adaptor_sigs_c(
         Ok(sigs) => {
             // Return as a C string
             CString::new(sigs).unwrap().into_raw()
+        }
+        Err(e) => error_as_cstr_prefix(e),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn create_nonce_c(event_id: *const c_char, index: u32) -> *mut c_char {
+    // Convert the event_id from raw pointer to Rust string
+    let event_id_str = unsafe {
+        CStr::from_ptr(event_id)
+            .to_str()
+            .unwrap_or("Error in event ID")
+    };
+
+    // Call your existing function that creates the nonce (assuming this is what you want)
+    match create_nonce(event_id_str, index) {
+        Ok((sk, pk)) => {
+            // Return as a C string
+            CString::new(format!("{} {}", sk, pk)).unwrap().into_raw()
         }
         Err(e) => error_as_cstr_prefix(e),
     }

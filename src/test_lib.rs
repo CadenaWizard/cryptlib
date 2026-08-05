@@ -4,7 +4,7 @@
 
 use crate::adaptor_signature::verify_ecdsa_signature;
 use crate::{
-    combine_pubkeys, combine_seckeys, create_deterministic_nonce, get_public_key,
+    combine_pubkeys, combine_seckeys, create_nonce, create_deterministic_nonce, get_public_key,
     init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
     verify_schnorr, Lib,
 };
@@ -133,6 +133,32 @@ fn test_sign_hash_ecdsa() {
     // negative test, wrong index
     assert!(lib.sign_hash_ecdsa(&hash, 0, 31, &pubkey3).is_err());
     assert!(lib.sign_hash_ecdsa(&hash, 1, 3, &pubkey3).is_err());
+}
+
+#[test]
+fn test_create_nonce() {
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+
+    let (sk1, pk1) = create_nonce("event01", 0).unwrap();
+    assert_eq!(sk1.len(), 64);
+    assert_eq!(pk1.len(), 66);
+    assert_ne!(sk1, pk1);
+    let (sk2, pk2) = create_nonce("event01", 1).unwrap();
+    assert_ne!(sk1, sk2);
+    assert_ne!(pk1, pk2);
+
+    // Nonce generation now folds in fresh randomness: repeated calls with the
+    // same event_id/index must not reproduce the same secret.
+    let (sk3, pk3) = create_nonce("event01", 0).unwrap();
+    assert_ne!(sk1, sk3);
+    assert_ne!(pk1, pk3);
+}
+
+#[test]
+fn test_create_nonce_requires_initialized_wallet() {
+    // Without a wallet (no master-key-derived seed available), nonce creation must fail.
+    let lib = Lib::new_empty();
+    assert!(lib.create_nonce("event01", 0).is_err());
 }
 
 #[test]
@@ -398,16 +424,21 @@ fn test_create_final_cet_sigs_full() {
     // Prepare nonces
     let mut nonces_sec_vec = Vec::new();
     let mut nonces_pub_vec = Vec::new();
-    let mut nonces = String::new();
     for i in 0..(digits as usize) {
         let (nsec, npub) = lib_ora
-            .create_deterministic_nonce(event_id, i as u32)
+            .create_nonce(event_id, i as u32)
             .unwrap();
         nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
         nonces_pub_vec.push(npub.clone());
-        nonces += &format!("{} ", npub);
     }
-    assert_eq!(nonces, "03829589a7db8530b521577ce5b9560e31cb29b943927b417c580ec3b6e57317a9 0278d6b6808d5370da62c9304f66415c1f9f408a2ee9d95a9dc836512218a7b04f 027c14675c2bd2e728e5760d5017d4ae2b22a4a33193689654e5eb13111ab7f491 02e7657c7d006d27b248642974875348b41299690a6415bc019ac71e6988434daa ");
+    // Nonces now fold in fresh randomness, so exact values aren't reproducible;
+    // check structural validity and pairwise distinctness instead.
+    assert_eq!(nonces_pub_vec.len(), digits as usize);
+    for i in 0..nonces_pub_vec.len() {
+        for j in (i + 1)..nonces_pub_vec.len() {
+            assert_ne!(nonces_pub_vec[i], nonces_pub_vec[j]);
+        }
+    }
 
     let mut oracle_signatures = Vec::new();
     for i in 0..(digits as usize) {
@@ -554,16 +585,21 @@ fn test_create_final_cet_sig_full() {
     // Prepare nonces
     let mut nonces_sec_vec = Vec::new();
     let mut nonces_pub_vec = Vec::new();
-    let mut nonces = String::new();
     for i in 0..(digits as usize) {
         let (nsec, npub) = lib_ora
-            .create_deterministic_nonce(event_id, i as u32)
+            .create_nonce(event_id, i as u32)
             .unwrap();
         nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
         nonces_pub_vec.push(npub.clone());
-        nonces += &format!("{} ", npub);
     }
-    assert_eq!(nonces, "03829589a7db8530b521577ce5b9560e31cb29b943927b417c580ec3b6e57317a9 0278d6b6808d5370da62c9304f66415c1f9f408a2ee9d95a9dc836512218a7b04f 027c14675c2bd2e728e5760d5017d4ae2b22a4a33193689654e5eb13111ab7f491 02e7657c7d006d27b248642974875348b41299690a6415bc019ac71e6988434daa ");
+    // Nonces now fold in fresh randomness, so exact values aren't reproducible;
+    // check structural validity and pairwise distinctness instead.
+    assert_eq!(nonces_pub_vec.len(), digits as usize);
+    for i in 0..nonces_pub_vec.len() {
+        for j in (i + 1)..nonces_pub_vec.len() {
+            assert_ne!(nonces_pub_vec[i], nonces_pub_vec[j]);
+        }
+    }
 
     let mut oracle_signatures = Vec::new();
     for i in 0..(digits as usize) {

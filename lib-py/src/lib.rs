@@ -66,7 +66,19 @@ pub fn sign_hash_ecdsa(
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Create an unpredictable (random, secret master-key-seeded) nonce value
+#[pyfunction]
+pub fn create_nonce(
+    event_id: String,
+    nonce_index: u32,
+) -> PyResult<(String, String)> {
+    dlccryptlib::create_nonce(&event_id, nonce_index)
+        .map_err(|e| PyErr::new::<PyException, _>(e))
+}
+
+
 /// Create a nonce value deterministically
+/// See also: create_nonce
 #[pyfunction]
 pub fn create_deterministic_nonce(
     event_id: String,
@@ -228,6 +240,7 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_address, m)?)?;
     m.add_function(wrap_pyfunction!(verify_public_key, m)?)?;
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
+    m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(create_deterministic_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
