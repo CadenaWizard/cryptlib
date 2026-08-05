@@ -137,7 +137,6 @@ impl Lib {
         sign_hash_ecdsa_with_key(&self.secp, hash, &keypair.secret_key())
     }
 
-
     /// Create an unpredictable nonce for an event/digit-index.
     /// The secret combines: a value derived from the master key (so it cannot be
     /// computed by anyone without the master secret), the event ID and digit index

@@ -100,10 +100,7 @@ pub fn sign_hash_ecdsa(
 }
 
 pub fn create_nonce(event_id: &str, index: u32) -> Result<(String, String), String> {
-    let (sk, pk) = global_lib()
-        .read()
-        .unwrap()
-        .create_nonce(event_id, index)?;
+    let (sk, pk) = global_lib().read().unwrap().create_nonce(event_id, index)?;
     Ok((sk, pk.to_string()))
 }
 

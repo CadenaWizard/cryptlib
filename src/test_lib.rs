@@ -4,7 +4,7 @@
 
 use crate::adaptor_signature::verify_ecdsa_signature;
 use crate::{
-    combine_pubkeys, combine_seckeys, create_nonce, create_deterministic_nonce, get_public_key,
+    combine_pubkeys, combine_seckeys, create_deterministic_nonce, create_nonce, get_public_key,
     init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
     verify_schnorr, Lib,
 };
@@ -425,9 +425,7 @@ fn test_create_final_cet_sigs_full() {
     let mut nonces_sec_vec = Vec::new();
     let mut nonces_pub_vec = Vec::new();
     for i in 0..(digits as usize) {
-        let (nsec, npub) = lib_ora
-            .create_nonce(event_id, i as u32)
-            .unwrap();
+        let (nsec, npub) = lib_ora.create_nonce(event_id, i as u32).unwrap();
         nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
         nonces_pub_vec.push(npub.clone());
     }
@@ -586,9 +584,7 @@ fn test_create_final_cet_sig_full() {
     let mut nonces_sec_vec = Vec::new();
     let mut nonces_pub_vec = Vec::new();
     for i in 0..(digits as usize) {
-        let (nsec, npub) = lib_ora
-            .create_nonce(event_id, i as u32)
-            .unwrap();
+        let (nsec, npub) = lib_ora.create_nonce(event_id, i as u32).unwrap();
         nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
         nonces_pub_vec.push(npub.clone());
     }
