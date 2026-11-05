@@ -351,10 +351,7 @@ Since the result is not reproducible, the Oracle has to **store** the secret non
 
 ### A.7 Key Derivation
 
-Party and Oracle keys are HD-wallet child keys, derived from a seed along the BIP84 account path:
-
-- mainnet: `m/84'/0'/0'/<index4>/<index5>`
-- signet: `m/84'/1'/0'/<index4>/<index5>`
+Party and Oracle keys are HD-wallet child keys, derived from a seed along the BIP84 account path `m/84'/0'/0'/<index4>/<index5>`.
 
 ### A.8 References
 

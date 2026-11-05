@@ -622,7 +622,7 @@ pub extern "C" fn create_nonce_c(event_id: *const c_char, index: u32) -> *mut c_
             .unwrap_or("Error in event ID")
     };
 
-    // Call your existing function that creates the nonce (assuming this is what you want)
+    // Create the nonce
     match create_nonce(event_id_str, index) {
         Ok((sk, pk)) => {
             // Return as a C string
@@ -641,7 +641,7 @@ pub extern "C" fn create_deterministic_nonce_c(event_id: *const c_char, index: u
             .unwrap_or("Error in event ID")
     };
 
-    // Call your existing function that creates the nonce (assuming this is what you want)
+    // Create the nonce
     match create_deterministic_nonce(event_id_str, index) {
         Ok((sk, pk)) => {
             // Return as a C string
