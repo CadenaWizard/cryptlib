@@ -196,7 +196,7 @@ impl Lib {
         sign_schnorr_with_nonce_sec(&self.secp, &kp, msg, nonce_sec)
     }
 
-    /// Verify a Schnorr signature on a message using Schnorr, using a child key
+    /// Verify a Schnorr signature on a message, using a child key
     pub(crate) fn verify_schnorr(
         &self,
         msg: &str,
