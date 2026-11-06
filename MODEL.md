@@ -303,6 +303,8 @@ m_{d,v} = \mathrm{SHA256}(\text{template}[d, v]), \qquad
 S_{d,v} = R_d + H_{\text{BIP340}}(R_d \parallel X_O \parallel m_{d,v}) \cdot X_O
 ```
 
+The template must contain both `{digit_index}` and `{digit_outcome}`; creating or verifying CET adaptor signatures fails otherwise. Without `{digit_outcome}`, $S_{d,v}$ would be the same for all values $v$, so an attestation would also decrypt the adaptor signatures of other CETs with the same pattern shape. Both placeholders are replaced by plain decimal numbers, without padding (e.g. `Outcome:btcusd1741474920:2:7`).
+
 That gives $D \times 10$ signature points, all computed in advance.
 
 **CET patterns (wildcards).** Each CET is described by a pattern of length $D$. A position is either a fixed digit `0`–`9` or a wildcard (any other character, e.g. `*`). A CET's adaptor point is the **sum** of the signature points at its fixed positions:

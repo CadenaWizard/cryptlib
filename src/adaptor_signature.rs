@@ -188,8 +188,8 @@ pub(crate) fn create_digit_adaptor_sig_point<S: Signing + Verification>(
     // print("Digit", digit_index, digit_outcome)
     let string_msg = string_template
         .to_string()
-        .replace("{digit_index}", &digit_index.to_string())
-        .replace("{digit_outcome}", &digit_outcome.to_string());
+        .replace(DIGIT_INDEX_PLACEHOLDER, &digit_index.to_string())
+        .replace(DIGIT_OUTCOME_PLACEHOLDER, &digit_outcome.to_string());
     // println!(
     //     "Digit outcome: idx {} outcome {} string {} nonce {}",
     //     digit_index,
@@ -209,6 +209,25 @@ pub(crate) fn create_digit_adaptor_sig_point<S: Signing + Verification>(
     Ok(sig_point)
 }
 
+const DIGIT_INDEX_PLACEHOLDER: &str = "{digit_index}";
+const DIGIT_OUTCOME_PLACEHOLDER: &str = "{digit_outcome}";
+
+/// Check that the digit string template contains both placeholders.
+/// Without `{digit_outcome}` the message (and signature point) would be the same for every digit value,
+/// so an attestation would decrypt the adaptor signatures of other CETs as well.
+/// Without `{digit_index}` the messages of different digits would not be distinguished.
+pub(crate) fn validate_digit_string_template(template: &str) -> Result<(), String> {
+    for placeholder in [DIGIT_INDEX_PLACEHOLDER, DIGIT_OUTCOME_PLACEHOLDER] {
+        if !template.contains(placeholder) {
+            return Err(format!(
+                "Invalid digit string template, missing placeholder {} ({})",
+                placeholder, template
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn combine_pubkeys_wrapper(keys: &[&PublicKey]) -> Result<PublicKey, String> {
     PublicKey::combine_keys(keys).map_err(|err| err.to_string())
 }
@@ -224,6 +243,7 @@ pub(crate) fn create_cet_adaptor_signatures<S: Signing + Verification>(
     interval_wildcards: &Vec<String>,
     sighashes: &Vec<[u8; 32]>,
 ) -> Result<Vec<EcdsaAdaptorSignature>, String> {
+    validate_digit_string_template(digit_string_template)?;
     if interval_wildcards.len() != num_cets as usize {
         return Err(format!(
             "Invalid number of wildcards {} {}",
@@ -315,6 +335,7 @@ pub(crate) fn verify_cet_adaptor_signatures<S: Signing + Verification>(
     sighashes: &Vec<[u8; 32]>,
     signatures: &Vec<EcdsaAdaptorSignature>,
 ) -> Result<(), String> {
+    validate_digit_string_template(digit_string_template)?;
     if interval_wildcards.len() != num_cets as usize {
         return Err(format!(
             "Invalid number of wildcards {} {}",
