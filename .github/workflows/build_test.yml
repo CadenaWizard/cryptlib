@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main", "develop", "staging" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -15,12 +19,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Rust
-      run: sudo apt-get install cargo && rustup override set 1.85
     - uses: actions/checkout@v4
+    # The Rust toolchain version comes from rust-toolchain.toml (rustup is preinstalled on the runner)
+    - name: Show Rust version
+      run: rustc --version && cargo --version
+    - name: Cache Cargo registry and build artifacts
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          . -> target
+          samples/rust -> target
     - name: Build the library
       run: cargo build
     - name: Run unit tests
       run: cargo test
     - name: Build and run sample/rust
-      run: cd samples/rust && cargo run && cargo test && cd ../..
+      run: cd samples/rust && cargo run && cargo test

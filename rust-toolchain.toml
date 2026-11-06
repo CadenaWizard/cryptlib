@@ -1,0 +1,3 @@
+[toolchain]
+# Minimum supported Rust version (MSRV), also used in CI
+channel = "1.85"
