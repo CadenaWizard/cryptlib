@@ -29,7 +29,7 @@ cargo build && cargo test
 cd samples/rust && cargo run && cargo test && cd ../..
 ```
 
-The Python wrapper and Python tests: see [README.md](README.md#developing) and [.github/workflows/build_python.yml](.github/workflows/build_python.yml). CI uses Rust 1.81, so don't rely on newer language features.
+The Python wrapper and Python tests: see [README.md](README.md#developing) and [.github/workflows/build_python.yml](.github/workflows/build_python.yml). CI uses Rust 1.85, so don't rely on newer language features.
 
 Run `cargo fmt` before finishing a change.
 
