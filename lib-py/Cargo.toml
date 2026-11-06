@@ -11,4 +11,4 @@ name = "dlccryptlib_py"
 [dependencies]
 #dlccryptlib = "2.1.99"
 dlccryptlib = { path = "../" }
-pyo3 = { version = "0.23.1" }
+pyo3 = { version = "0.30.1" }

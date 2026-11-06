@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main", "develop", "staging" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -15,15 +19,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Rust
-      run: sudo apt-get install cargo && rustup override set 1.81
-    - name: Set up Python
-      run: sudo apt-get install python3 python3-dev
     - uses: actions/checkout@v4
+    # The Rust toolchain version comes from rust-toolchain.toml (rustup is preinstalled on the runner)
+    - name: Show Rust version
+      run: rustc --version && cargo --version
+    - name: Cache Cargo registry and build artifacts
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib-py -> target
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+        cache-dependency-path: lib-py/requirements.txt
     - name: Set up a Python virtual environment (needed for maturin)
-      run: python3 -m venv ./venv
+      run: python -m venv ./venv
     - name: Install Python deps
-      run: ./venv/bin/pip3 install -r ./lib-py/requirements.txt
+      run: ./venv/bin/pip install -r ./lib-py/requirements.txt
     - name: Build the Rust library, install it as a Python module
       run: cd lib-py && VIRTUAL_ENV='../venv' ../venv/bin/maturin develop && cd ..
     - name: Run the Python sample app

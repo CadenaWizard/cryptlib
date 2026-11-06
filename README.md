@@ -28,6 +28,8 @@ All functions are available from Rust and Python. The C interface covers a subse
 
 ## Developing
 
+Minimum supported Rust version (MSRV): **1.85**.
+
 To build and test in Rust:
 
 ```
