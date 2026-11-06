@@ -2,14 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-use crate::adaptor_signature::verify_ecdsa_signature;
+use crate::adaptor_signature::{
+    create_digit_adaptor_sig_point, validate_digit_string_template, verify_ecdsa_signature,
+};
 use crate::{
     combine_pubkeys, combine_seckeys, create_deterministic_nonce, create_nonce, get_public_key,
     init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
     verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
-use bitcoin::secp256k1::PublicKey;
+use bitcoin::secp256k1::{PublicKey, Secp256k1};
 use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
 use secp256k1_zkp::EcdsaAdaptorSignature;
 use std::str::FromStr;
@@ -359,6 +361,133 @@ fn test_verify_cet_adaptor_sigs_full() {
             &adaptor_sigs_vec,
         )
         .unwrap();
+}
+
+#[test]
+fn test_validate_digit_string_template() {
+    assert!(validate_digit_string_template(
+        "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}"
+    )
+    .is_ok());
+    assert!(validate_digit_string_template("{digit_outcome}:{digit_index}").is_ok());
+
+    // A placeholder present more than once is accepted (all occurrences are substituted)
+    for template in [
+        "Outcome:{digit_index}:{digit_outcome}:{digit_outcome}",
+        "Outcome:{digit_index}:{digit_index}:{digit_outcome}",
+        "Outcome:{digit_index}{digit_index}:{digit_outcome}{digit_outcome}",
+    ] {
+        assert!(
+            validate_digit_string_template(template).is_ok(),
+            "{}",
+            template
+        );
+    }
+
+    for template in [
+        "Outcome:btcusd1741474920:{digit_index}",
+        "Outcome:btcusd1741474920:{digit_outcome}",
+        "Outcome:btcusd1741474920",
+        "Outcome:btcusd1741474920:{digit_index}:{digit_value}",
+        "",
+        // Duplicates don't make up for a missing placeholder
+        "Outcome:{digit_index}:{digit_index}",
+        "Outcome:{digit_outcome}:{digit_outcome}",
+    ] {
+        assert!(
+            validate_digit_string_template(template).is_err(),
+            "{}",
+            template
+        );
+    }
+
+    // Every occurrence is substituted: the signature point for digit 2, value 7
+    // equals the one computed from the already filled-in message
+    let secp = Secp256k1::new();
+    let oracle_pubkey = create_dummy_pubkey(9);
+    let nonce = create_dummy_pubkey(0);
+    let sig_point = |template: &str| {
+        create_digit_adaptor_sig_point(&secp, &oracle_pubkey, 2, 7, template, &nonce).unwrap()
+    };
+    assert_eq!(
+        sig_point("Outcome:{digit_index}:{digit_index}:{digit_outcome}:{digit_outcome}"),
+        sig_point("Outcome:2:2:7:7")
+    );
+    assert_ne!(
+        sig_point("Outcome:{digit_index}:{digit_index}:{digit_outcome}:{digit_outcome}"),
+        sig_point("Outcome:{digit_index}:{digit_outcome}")
+    );
+}
+
+#[test]
+fn test_cet_adaptor_sigs_invalid_template() {
+    let mut lib = Lib::new_empty();
+    let _xpub = lib.init_with_entropy(&dummy_bytes32(0).to_vec(), DEFAULT_NETWORK);
+
+    let nonces = vec![
+        create_dummy_pubkey(0),
+        create_dummy_pubkey(1),
+        create_dummy_pubkey(2),
+        create_dummy_pubkey(3),
+        create_dummy_pubkey(4),
+        create_dummy_pubkey(5),
+    ];
+    let interval_wildcards = vec![
+        "001****".to_string(),
+        "002****".to_string(),
+        "003****".to_string(),
+    ];
+    let sighashes = vec![dummy_bytes32(0), dummy_bytes32(1), dummy_bytes32(2)];
+    let oracle_pubkey = create_dummy_pubkey(9);
+    let my_pubkey = lib.get_child_public_key(0, 0).unwrap();
+
+    let valid_template = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
+    let adaptor_sigs_vec = lib
+        .create_cet_adaptor_sigs(
+            6,
+            3,
+            valid_template,
+            &oracle_pubkey,
+            0,
+            0,
+            &my_pubkey,
+            &nonces,
+            &interval_wildcards,
+            &sighashes,
+        )
+        .unwrap();
+
+    for template in [
+        "Outcome:btcusd1741474920:{digit_index}",
+        "Outcome:btcusd1741474920:{digit_outcome}",
+    ] {
+        let res = lib.create_cet_adaptor_sigs(
+            6,
+            3,
+            template,
+            &oracle_pubkey,
+            0,
+            0,
+            &my_pubkey,
+            &nonces,
+            &interval_wildcards,
+            &sighashes,
+        );
+        assert!(res.unwrap_err().contains("missing placeholder"));
+
+        let res = lib.verify_cet_adaptor_sigs(
+            6,
+            3,
+            template,
+            &oracle_pubkey,
+            &my_pubkey,
+            &nonces,
+            &interval_wildcards,
+            &sighashes,
+            &adaptor_sigs_vec,
+        );
+        assert!(res.unwrap_err().contains("missing placeholder"));
+    }
 }
 
 #[test]
