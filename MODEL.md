@@ -349,8 +349,6 @@ k = \mathrm{SHA256}(\text{nonce\_seed} \parallel \text{event\_id} \parallel \tex
 
 Since the result is not reproducible, the Oracle has to **store** the secret nonce until it attests.
 
-> ⚠️ `create_deterministic_nonce` hashes a fixed public string containing only `event_id` and `index`, so **anyone** can compute that nonce. It must not be used for real attestations.
-
 ### A.7 Key Derivation
 
 Party and Oracle keys are HD-wallet child keys, derived from a seed along the BIP84 account path `m/84'/0'/0'/<index4>/<index5>`.

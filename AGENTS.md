@@ -43,5 +43,5 @@ Run `cargo fmt` before finishing a change.
 ## Cryptography cautions
 
 - Don't change message formats, hashing, or derivation paths without being asked. Other components (the Oracle, the client app) depend on them.
-- An Oracle nonce must never be reused, and the secret nonce must never be predictable. `create_deterministic_nonce` is for tests only.
+- An Oracle nonce must never be reused, and the secret nonce must never be predictable.
 - Don't log or print secret keys, secret nonces, or seed entropy.

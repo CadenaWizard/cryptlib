@@ -16,7 +16,7 @@ The library is written in Rust (a programming environment popular for crypto imp
 - Initialize from a secret seed: either load it from an encrypted file, or pass the entropy directly
 - Get the account XPUB; get child public keys and addresses; verify that a public key belongs to a child key
 - Sign a hash (ECDSA) using a child key
-- Generate nonce values for an event and digit index (unpredictable, or deterministic for testing only)
+- Generate unpredictable nonce values for an event and digit index
 - Perform Schnorr signature of a message using a given nonce, using a child key; verify a Schnorr signature
 - Combine (add) public keys or secret keys
 - Create CET adaptor signatures (batch)

@@ -170,20 +170,6 @@ impl Lib {
         Ok((hash.to_lower_hex_string(), publickey))
     }
 
-    /// Create a nonce value deterministically
-    /// See also create_nonce
-    pub(crate) fn create_deterministic_nonce(
-        &self,
-        event_id: &str,
-        index: u32,
-    ) -> Result<(String, PublicKey), String> {
-        let msg = format!("This is a message for creating a deterministic nonce for event with ID {} and index {}", event_id, index);
-        let hash = sha256::Hash::hash(msg.as_bytes()).to_byte_array();
-        let secretkey = SecretKey::from_slice(&hash).map_err(|e| e.to_string())?;
-        let publickey = secretkey.public_key(&self.secp);
-        Ok((hash.to_lower_hex_string(), publickey))
-    }
-
     /// Sign a message using Schnorr, using a child key
     pub(crate) fn sign_schnorr_with_nonce(
         &self,
