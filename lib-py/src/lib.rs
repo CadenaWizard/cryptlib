@@ -77,17 +77,6 @@ pub fn create_nonce(
 }
 
 
-/// Create a nonce value deterministically
-/// See also: create_nonce
-#[pyfunction]
-pub fn create_deterministic_nonce(
-    event_id: String,
-    nonce_index: u32,
-) -> PyResult<(String, String)> {
-    dlccryptlib::create_deterministic_nonce(&event_id, nonce_index)
-        .map_err(|e| PyErr::new::<PyException, _>(e))
-}
-
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
 pub fn sign_schnorr_with_nonce(
@@ -241,7 +230,6 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_public_key, m)?)?;
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
     m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
-    m.add_function(wrap_pyfunction!(create_deterministic_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
     m.add_function(wrap_pyfunction!(combine_pubkeys, m)?)?;

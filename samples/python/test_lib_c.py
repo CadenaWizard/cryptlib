@@ -34,8 +34,6 @@ class RustInterface:
         self.lib.sign_hash_ecdsa_c.restype = c_char_p
         self.lib.create_cet_adaptor_sigs_c.argtypes = [c_uint8, c_uint32, c_char_p, c_char_p, c_uint32, c_uint32, c_char_p, c_char_p, c_char_p, c_char_p]
         self.lib.create_cet_adaptor_sigs_c.restype = c_char_p
-        self.lib.create_deterministic_nonce_c.argtypes = [c_char_p, c_char_p]
-        self.lib.create_deterministic_nonce_c.restype = c_char_p
 
     # Initialize the library, provide the secret as parameter. Return the XPUB.
     def init_with_entropy(self, entropy, network):
@@ -56,10 +54,6 @@ class RustInterface:
     def get_public_key(self, index4, index5):
         # Call the Rust function (get_public_key_c) from the .so library
         return self.lib.get_public_key_c(index4, index5).decode("utf-8")
-
-    def create_deterministic_nonce(self, event_id, index):
-        # Call the Rust function (create_deterministic_nonce_c) from the .so library
-        return self.lib.create_deterministic_nonce_c(event_id.encode('utf-8'), str(index).encode('utf-8')).decode("utf-8")
 
 
 rust_interface = None
@@ -91,7 +85,3 @@ interval_wildcards = "0000*** 0001*** 0002***"
 sighashes = "0001020300000000000000000000000000000000000000000000000000010200 0001020300000000000000000000000000000000000000000000000000010201 0001020300000000000000000000000000000000000000000000000000010202"
 sigs = rust_interface.create_cet_adaptor_sigs(7, 3, digit_string_template, oracle_pubkey, 0, 0, pubkey0, nonces, interval_wildcards, sighashes)
 print("signatures:", sigs)
-
-
-det_nonce0 = rust_interface.create_deterministic_nonce("event001", 0)
-print("nonce:", det_nonce0)

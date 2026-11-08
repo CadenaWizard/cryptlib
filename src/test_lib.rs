@@ -6,9 +6,8 @@ use crate::adaptor_signature::{
     create_digit_adaptor_sig_point, validate_digit_string_template, verify_ecdsa_signature,
 };
 use crate::{
-    combine_pubkeys, combine_seckeys, create_deterministic_nonce, create_nonce, get_public_key,
-    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
-    verify_schnorr, Lib,
+    combine_pubkeys, combine_seckeys, create_nonce, get_public_key, init_with_entropy,
+    keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key, verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::{PublicKey, Secp256k1};
@@ -161,17 +160,6 @@ fn test_create_nonce_requires_initialized_wallet() {
     // Without a wallet (no master-key-derived seed available), nonce creation must fail.
     let lib = Lib::new_empty();
     assert!(lib.create_nonce("event01", 0).is_err());
-}
-
-#[test]
-fn test_create_deterministic_nonce() {
-    let (sk1, pk1) = create_deterministic_nonce("event01", 0).unwrap();
-    assert_eq!(sk1.len(), 64);
-    assert_eq!(pk1.len(), 66);
-    assert_ne!(sk1, pk1);
-    let (sk2, pk2) = create_deterministic_nonce("event01", 1).unwrap();
-    assert_ne!(sk1, sk2);
-    assert_ne!(pk1, pk2);
 }
 
 #[test]
