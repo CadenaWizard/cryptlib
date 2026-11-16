@@ -17,6 +17,7 @@ The library is written in Rust (a programming environment popular for crypto imp
 - Get the account XPUB; get child public keys and addresses; verify that a public key belongs to a child key
 - Sign a hash (ECDSA) using a child key
 - Generate unpredictable nonce values for an event and digit index
+- Derived nonces: create the public nonces for an event deterministically from the Oracle secret key (no secret nonces to store), verify them, and create the attestation (signatures for all digits of the outcome) with them
 - Perform Schnorr signature of a message using a given nonce, using a child key; verify a Schnorr signature
 - Combine (add) public keys or secret keys
 - Create CET adaptor signatures (batch)
