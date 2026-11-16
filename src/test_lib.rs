@@ -3,7 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 use crate::adaptor_signature::{
-    create_digit_adaptor_sig_point, validate_digit_string_template, verify_ecdsa_signature,
+    create_digit_adaptor_sig_point, digit_message, validate_digit_string_template,
+    verify_ecdsa_signature,
 };
 use crate::{
     combine_pubkeys, combine_seckeys, create_nonce, get_public_key, init_with_entropy,
@@ -404,6 +405,28 @@ fn test_validate_digit_string_template() {
     assert_ne!(
         sig_point("Outcome:{digit_index}:{digit_index}:{digit_outcome}:{digit_outcome}"),
         sig_point("Outcome:{digit_index}:{digit_outcome}")
+    );
+}
+
+#[test]
+fn test_digit_message() {
+    assert_eq!(
+        digit_message(
+            "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}",
+            2,
+            7
+        ),
+        "Outcome:btcusd1741474920:2:7"
+    );
+    // Plain decimal numbers, without padding
+    assert_eq!(
+        digit_message("Outcome:{digit_index}:{digit_outcome}", 12, 0),
+        "Outcome:12:0"
+    );
+    // Every occurrence is substituted
+    assert_eq!(
+        digit_message("{digit_outcome}{digit_index}:{digit_index}", 3, 9),
+        "93:3"
     );
 }
 

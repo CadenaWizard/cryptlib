@@ -186,10 +186,7 @@ pub(crate) fn create_digit_adaptor_sig_point<S: Signing + Verification>(
     nonce: &PublicKey,
 ) -> Result<secp256k1_zkp::PublicKey, String> {
     // print("Digit", digit_index, digit_outcome)
-    let string_msg = string_template
-        .to_string()
-        .replace(DIGIT_INDEX_PLACEHOLDER, &digit_index.to_string())
-        .replace(DIGIT_OUTCOME_PLACEHOLDER, &digit_outcome.to_string());
+    let string_msg = digit_message(string_template, digit_index, digit_outcome);
     // println!(
     //     "Digit outcome: idx {} outcome {} string {} nonce {}",
     //     digit_index,
@@ -211,6 +208,15 @@ pub(crate) fn create_digit_adaptor_sig_point<S: Signing + Verification>(
 
 const DIGIT_INDEX_PLACEHOLDER: &str = "{digit_index}";
 const DIGIT_OUTCOME_PLACEHOLDER: &str = "{digit_outcome}";
+
+/// Build the message string for a digit having a value, from the digit string template.
+/// The same function is used for computing the signature points (CET adaptor signatures)
+/// and for creating the attestation, so the two always use the same message.
+pub(crate) fn digit_message(template: &str, digit_index: u8, digit_outcome: u8) -> String {
+    template
+        .replace(DIGIT_INDEX_PLACEHOLDER, &digit_index.to_string())
+        .replace(DIGIT_OUTCOME_PLACEHOLDER, &digit_outcome.to_string())
+}
 
 /// Check that the digit string template contains both placeholders.
 /// Without `{digit_outcome}` the message (and signature point) would be the same for every digit value,
