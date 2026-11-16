@@ -14,7 +14,8 @@ mod test_lib;
 use crate::adaptor_signature::combine_pubkeys_wrapper;
 use crate::lib_struct::{global_lib, Lib};
 use crate::parse::{
-    hash_from_hex, keypair_from_sec_key_hex, pubkey_from_hex, schnorr_sig_from_hex,
+    hash_from_hex, keypair_from_sec_key_hex, pubkey_from_hex, pubkeys_from_hex_list,
+    schnorr_sig_from_hex,
 };
 use crate::secret_entropy_storage::parse_entropy_hex;
 
@@ -130,6 +131,33 @@ pub fn create_derived_nonces(
         .map(|n| n.to_string())
         .collect::<Vec<_>>()
         .join(" "))
+}
+
+/// Check that the given public nonces (space-separated) are the derived nonces for the event,
+/// one for each digit (see `create_derived_nonces`).
+/// `oracle_pubkey` must be the child key at `(index4, index5)`, otherwise an error is returned.
+/// A wrong number of nonces is also an error.
+/// Return `false` if any of the nonces is not the derived nonce for its digit.
+pub fn verify_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey_str: &str,
+    event_id: &str,
+    num_digits: u8,
+    nonces_str: &str,
+) -> Result<bool, String> {
+    let oracle_pubkey = pubkey_from_hex(oracle_pubkey_str)
+        .map_err(|e| format!("Failed to parse oracle pubkey {}", e))?;
+    let nonces =
+        pubkeys_from_hex_list(nonces_str).map_err(|e| format!("Failed to parse nonces {}", e))?;
+    global_lib().read().unwrap().verify_derived_nonces(
+        index4,
+        index5,
+        &oracle_pubkey,
+        event_id,
+        num_digits,
+        &nonces,
+    )
 }
 
 // Schnorr signing with nonce

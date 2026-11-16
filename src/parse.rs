@@ -37,3 +37,16 @@ pub(crate) fn schnorr_sig_from_hex(sig_hex: &str) -> Result<SchnorrSignature, St
         .map_err(|e| format!("Error in signature processing {}", e))?;
     Ok(sig)
 }
+
+/// Parse a list of public keys, given as space-separated hex strings
+pub(crate) fn pubkeys_from_hex_list(pub_keys_hex: &str) -> Result<Vec<PublicKey>, String> {
+    pub_keys_hex
+        .split(' ')
+        .map(|k| k.trim())
+        .filter(|k| !k.is_empty())
+        .enumerate()
+        .map(|(i, k)| {
+            pubkey_from_hex(k).map_err(|e| format!("Failed to parse element {} {}", i, e))
+        })
+        .collect()
+}

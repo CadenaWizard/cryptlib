@@ -92,6 +92,30 @@ pub fn create_derived_nonces(
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Check that the given public nonces (space-separated) are the derived nonces for the event,
+/// one for each digit. `oracle_pubkey` must be the child key at `(index4, index5)`.
+/// A wrong pubkey or a wrong number of nonces is an error.
+/// Return false if any of the nonces is not the derived nonce for its digit.
+#[pyfunction]
+pub fn verify_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey: String,
+    event_id: String,
+    num_digits: u8,
+    nonces: String,
+) -> PyResult<bool> {
+    dlccryptlib::verify_derived_nonces(
+        index4,
+        index5,
+        &oracle_pubkey,
+        &event_id,
+        num_digits,
+        &nonces,
+    )
+    .map_err(|e| PyErr::new::<PyException, _>(e))
+}
+
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
 pub fn sign_schnorr_with_nonce(
@@ -246,6 +270,7 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
     m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(create_derived_nonces, m)?)?;
+    m.add_function(wrap_pyfunction!(verify_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
     m.add_function(wrap_pyfunction!(combine_pubkeys, m)?)?;
