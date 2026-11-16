@@ -76,6 +76,21 @@ pub fn create_nonce(
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Create the derived public nonces for an event, one for each digit.
+/// Deterministic: derived from the Oracle secret key, the Oracle pubkey, the event ID and the digit index.
+/// `oracle_pubkey` must be the child key at `(index4, index5)`.
+/// Return the public nonces, separated by spaces.
+#[pyfunction]
+pub fn create_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey: String,
+    event_id: String,
+    num_digits: u8,
+) -> PyResult<String> {
+    dlccryptlib::create_derived_nonces(index4, index5, &oracle_pubkey, &event_id, num_digits)
+        .map_err(|e| PyErr::new::<PyException, _>(e))
+}
 
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
@@ -230,6 +245,7 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_public_key, m)?)?;
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
     m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
+    m.add_function(wrap_pyfunction!(create_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
     m.add_function(wrap_pyfunction!(combine_pubkeys, m)?)?;

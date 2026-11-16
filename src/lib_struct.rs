@@ -4,8 +4,8 @@
 
 use crate::adaptor_signature::{
     create_cet_adaptor_signatures, create_final_cet_signature, create_final_cet_signatures,
-    sign_hash_ecdsa_with_key, sign_schnorr_with_nonce_sec, verify_cet_adaptor_signatures,
-    verify_schnorr,
+    derive_nonce_secret, sign_hash_ecdsa_with_key, sign_schnorr_with_nonce_sec,
+    verify_cet_adaptor_signatures, verify_schnorr,
 };
 use crate::hd_wallet_storage::HDWalletStorage;
 
@@ -170,6 +170,63 @@ impl Lib {
         Ok((hash.to_lower_hex_string(), publickey))
     }
 
+    /// Derive the secret nonce (keypair) for an event and digit index, from the Oracle signing key.
+    /// See `derive_nonce_secret` for the derivation.
+    /// The secret must never leave the library: only the attestation signing uses it.
+    fn create_derived_nonce_sec(
+        &self,
+        oracle_keypair: &Keypair,
+        event_id: &str,
+        digit_index: u8,
+    ) -> Result<Keypair, String> {
+        let nonce_sec = derive_nonce_secret(oracle_keypair, event_id, digit_index)?;
+        Ok(Keypair::from_secret_key(&self.secp, &nonce_sec))
+    }
+
+    /// Derive the public nonce for an event and digit index.
+    fn create_derived_nonce(
+        &self,
+        oracle_keypair: &Keypair,
+        event_id: &str,
+        digit_index: u8,
+    ) -> Result<PublicKey, String> {
+        Ok(self
+            .create_derived_nonce_sec(oracle_keypair, event_id, digit_index)?
+            .public_key())
+    }
+
+    /// Check that the Oracle pubkey belongs to the child key at the given indices.
+    /// A mismatch is an error.
+    fn verify_oracle_pubkey(
+        &self,
+        index4: u32,
+        index5: u32,
+        oracle_pubkey: &PublicKey,
+    ) -> Result<(), String> {
+        let _ =
+            self.verify_child_public_key_intern(index4, index5, oracle_pubkey, "Oracle pubkey")?;
+        Ok(())
+    }
+
+    /// Create the derived public nonces for an event, one for each digit.
+    /// The nonces are deterministic: the same inputs give the same nonces.
+    /// `oracle_pubkey` is checked against the child key at `(index4, index5)`.
+    pub(crate) fn create_derived_nonces(
+        &self,
+        index4: u32,
+        index5: u32,
+        oracle_pubkey: &PublicKey,
+        event_id: &str,
+        num_digits: u8,
+    ) -> Result<Vec<PublicKey>, String> {
+        self.verify_oracle_pubkey(index4, index5, oracle_pubkey)?;
+        let oracle_keypair = self.get_child_keypair(index4, index5)?;
+        check_num_digits(num_digits)?;
+        (0..num_digits)
+            .map(|d| self.create_derived_nonce(&oracle_keypair, event_id, d))
+            .collect()
+    }
+
     /// Sign a message using Schnorr, using a child key
     pub(crate) fn sign_schnorr_with_nonce(
         &self,
@@ -325,6 +382,13 @@ impl Lib {
             adaptor_signature,
         )
     }
+}
+
+fn check_num_digits(num_digits: u8) -> Result<(), String> {
+    if num_digits == 0 {
+        return Err("Number of digits must be at least 1".to_string());
+    }
+    Ok(())
 }
 
 pub(crate) fn global_lib() -> &'static RwLock<Lib> {
