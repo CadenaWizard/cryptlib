@@ -4,8 +4,8 @@
 
 use crate::adaptor_signature::{
     create_cet_adaptor_signatures, create_final_cet_signature, create_final_cet_signatures,
-    derive_nonce_secret, sign_hash_ecdsa_with_key, sign_schnorr_with_nonce_sec,
-    verify_cet_adaptor_signatures, verify_schnorr,
+    derive_nonce_secret, digit_message, sign_hash_ecdsa_with_key, sign_schnorr_with_nonce_sec,
+    validate_digit_string_template, verify_cet_adaptor_signatures, verify_schnorr,
 };
 use crate::hd_wallet_storage::HDWalletStorage;
 
@@ -265,6 +265,74 @@ impl Lib {
         Ok(true)
     }
 
+    /// Create the Oracle attestation for an event: one Schnorr signature for each digit,
+    /// over the digit message (from `digit_string_template`) with the digit's value,
+    /// using the derived nonce of that digit.
+    ///
+    /// - `oracle_pubkey` is checked against the child key at `(index4, index5)`, which is the signing key.
+    /// - `digit_string_template`: the template already resolved for this event,
+    ///   containing `{digit_index}` and `{digit_outcome}`.
+    /// - `digit_values`: the attested value, one decimal character for each digit, e.g. "0096300".
+    /// - `nonces`: the announced public nonces; each one is checked against the derived nonce.
+    ///
+    /// All checks are done before anything is signed. Return all signatures or an error.
+    ///
+    /// WARNING: signing two different outcomes for the same `(oracle_pubkey, event_id)`
+    /// reveals the Oracle secret key, as the same nonces are used.
+    /// The library keeps no state, so the caller has to make sure an event is attested only once.
+    pub(crate) fn sign_attestation_with_derived_nonces(
+        &self,
+        index4: u32,
+        index5: u32,
+        oracle_pubkey: &PublicKey,
+        event_id: &str,
+        num_digits: u8,
+        digit_string_template: &str,
+        digit_values: &str,
+        nonces: &Vec<PublicKey>,
+    ) -> Result<Vec<SchnorrSignature>, String> {
+        self.verify_oracle_pubkey(index4, index5, oracle_pubkey)?;
+        let signing_keypair = self.get_child_keypair(index4, index5)?;
+        check_num_digits(num_digits)?;
+        validate_digit_string_template(digit_string_template)?;
+        let digit_values = parse_digit_values(digit_values, num_digits)?;
+        check_num_nonces(nonces, num_digits)?;
+
+        // Derive the secret nonces, and check them against the announced ones, before signing anything
+        let mut nonce_keypairs = Vec::with_capacity(num_digits as usize);
+        for d in 0..num_digits {
+            let nonce_keypair = self.create_derived_nonce_sec(&signing_keypair, event_id, d)?;
+            if nonce_keypair.x_only_public_key().0 != nonces[d as usize].x_only_public_key().0 {
+                return Err(format!(
+                    "Nonce mismatch for digit {}, {} is not the derived nonce",
+                    d, nonces[d as usize]
+                ));
+            }
+            nonce_keypairs.push(nonce_keypair);
+        }
+
+        let oracle_pubkey_xonly = oracle_pubkey.x_only_public_key().0;
+        let mut signatures = Vec::with_capacity(num_digits as usize);
+        for d in 0..num_digits {
+            let msg = digit_message(digit_string_template, d, digit_values[d as usize]);
+            let signature = sign_schnorr_with_nonce_sec(
+                &self.secp,
+                &signing_keypair,
+                &msg,
+                &nonce_keypairs[d as usize].secret_bytes(),
+            )?;
+            // Check the signature
+            if !verify_schnorr(&self.secp, &signature, &oracle_pubkey_xonly, &msg)? {
+                return Err(format!(
+                    "Attestation signature verification failed, digit {}",
+                    d
+                ));
+            }
+            signatures.push(signature);
+        }
+        Ok(signatures)
+    }
+
     /// Sign a message using Schnorr, using a child key
     pub(crate) fn sign_schnorr_with_nonce(
         &self,
@@ -438,6 +506,28 @@ fn check_num_nonces(nonces: &Vec<PublicKey>, num_digits: u8) -> Result<(), Strin
         ));
     }
     Ok(())
+}
+
+/// Parse the digit values of an outcome, one decimal character for each digit (e.g. "0096300")
+fn parse_digit_values(digit_values: &str, num_digits: u8) -> Result<Vec<u8>, String> {
+    if digit_values.len() != num_digits as usize {
+        return Err(format!(
+            "Wrong number of digit values {} {} ({})",
+            digit_values.len(),
+            num_digits,
+            digit_values
+        ));
+    }
+    digit_values
+        .bytes()
+        .map(|ch| {
+            if ch.is_ascii_digit() {
+                Ok(ch - b'0')
+            } else {
+                Err(format!("Invalid digit value in ({})", digit_values))
+            }
+        })
+        .collect()
 }
 
 pub(crate) fn global_lib() -> &'static RwLock<Lib> {

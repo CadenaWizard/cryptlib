@@ -8,8 +8,8 @@ use crate::adaptor_signature::{
 };
 use crate::{
     combine_pubkeys, combine_seckeys, create_derived_nonces, create_nonce, get_public_key,
-    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_derived_nonces,
-    verify_public_key, verify_schnorr, Lib,
+    init_with_entropy, keypair_from_sec_key_hex, sign_attestation_with_derived_nonces,
+    sign_schnorr_with_nonce, verify_derived_nonces, verify_public_key, verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1};
@@ -455,6 +455,460 @@ fn test_verify_derived_nonces() {
         &format!("{} 02ab", nonces)
     )
     .is_err());
+}
+
+const EVENT_TEMPLATE: &str = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
+
+#[test]
+fn test_sign_attestation_with_derived_nonces_lib() {
+    let secp = Secp256k1::new();
+    let lib = oracle3_lib();
+    let oracle_pubkey = lib.get_child_public_key(0, 0).unwrap();
+    let nonces = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    let digit_values = "9534";
+
+    let sigs = lib
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            EVENT_ID,
+            4,
+            EVENT_TEMPLATE,
+            digit_values,
+            &nonces,
+        )
+        .unwrap();
+    assert_eq!(sigs.len(), 4);
+    // Fixed value, to catch any change in the derivation or the message
+    assert_eq!(sigs[0].to_string(), "f58100c3b1a0aa65b173a2db329d77ede4c7d7a2617ee577f3408f77cac1c1f1ac3b80f6636534a768132cfc494833b099f6d85b4a16bd4d26e7272fa294b1c5");
+
+    for d in 0..4 {
+        // The signature uses the announced nonce
+        assert_eq!(
+            &sigs[d].as_ref()[0..32],
+            &nonces[d].x_only_public_key().0.serialize()
+        );
+        // and verifies over the digit message
+        let msg = format!("Outcome:btcusd1741474920:{}:{}", d, &digit_values[d..d + 1]);
+        assert!(lib.verify_schnorr(&msg, &sigs[d], 0, 0).unwrap());
+        let other_value_msg = format!("Outcome:btcusd1741474920:{}:{}", d, 0);
+        assert!(!lib
+            .verify_schnorr(&other_value_msg, &sigs[d], 0, 0)
+            .unwrap());
+    }
+
+    // Deterministic: signing the same outcome again gives the same signatures
+    let sigs2 = lib
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            EVENT_ID,
+            4,
+            EVENT_TEMPLATE,
+            digit_values,
+            &nonces,
+        )
+        .unwrap();
+    assert_eq!(sigs2, sigs);
+
+    // Nonces given with the other parity are accepted
+    let nonces_other_parity: Vec<_> = nonces.iter().map(|n| n.negate(&secp)).collect();
+    let sigs3 = lib
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            EVENT_ID,
+            4,
+            EVENT_TEMPLATE,
+            digit_values,
+            &nonces_other_parity,
+        )
+        .unwrap();
+    assert_eq!(sigs3, sigs);
+}
+
+#[test]
+fn test_sign_attestation_with_derived_nonces_lib_errors() {
+    let lib = oracle3_lib();
+    let oracle_pubkey = lib.get_child_public_key(0, 0).unwrap();
+    let nonces = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    let sign = |index4: u32,
+                index5: u32,
+                pubkey: &PublicKey,
+                event_id: &str,
+                num_digits: u8,
+                template: &str,
+                digit_values: &str,
+                nonces: &Vec<PublicKey>| {
+        lib.sign_attestation_with_derived_nonces(
+            index4,
+            index5,
+            pubkey,
+            event_id,
+            num_digits,
+            template,
+            digit_values,
+            nonces,
+        )
+    };
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces
+    )
+    .is_ok());
+
+    // Pubkey doesn't match the indices
+    let err = sign(
+        0,
+        1,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces,
+    )
+    .err()
+    .unwrap();
+    assert!(
+        err.starts_with("Oracle pubkey mismatch, index 0/1"),
+        "{}",
+        err
+    );
+    let other_pubkey = lib.get_child_public_key(0, 1).unwrap();
+    assert!(sign(
+        0,
+        0,
+        &other_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces
+    )
+    .is_err());
+
+    // A nonce that doesn't match
+    let mut nonces_one_wrong = nonces.clone();
+    nonces_one_wrong[2] = create_dummy_pubkey(9);
+    let err = sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces_one_wrong,
+    )
+    .err()
+    .unwrap();
+    assert!(err.starts_with("Nonce mismatch for digit 2"), "{}", err);
+    // Nonces of another event
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        "btcusd1741474921",
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces
+    )
+    .is_err());
+    // Nonces in the wrong order
+    let mut nonces_swapped = nonces.clone();
+    nonces_swapped.swap(0, 1);
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces_swapped
+    )
+    .is_err());
+
+    // Invalid template
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        "Outcome:{digit_index}",
+        "9534",
+        &nonces
+    )
+    .is_err());
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        "Outcome:{digit_outcome}",
+        "9534",
+        &nonces
+    )
+    .is_err());
+
+    // Digit values: wrong length, non-digit characters
+    for digit_values in ["953", "95345", "", "95*4", "95 4", "953a", "95٣4"] {
+        assert!(
+            sign(
+                0,
+                0,
+                &oracle_pubkey,
+                EVENT_ID,
+                4,
+                EVENT_TEMPLATE,
+                digit_values,
+                &nonces
+            )
+            .is_err(),
+            "{}",
+            digit_values
+        );
+    }
+
+    // Wrong number of nonces
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces[0..3].to_vec()
+    )
+    .is_err());
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        3,
+        EVENT_TEMPLATE,
+        "953",
+        &nonces
+    )
+    .is_err());
+
+    // No digits
+    assert!(sign(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        0,
+        EVENT_TEMPLATE,
+        "",
+        &vec![]
+    )
+    .is_err());
+
+    // Library not initialized
+    let lib_empty = Lib::new_empty();
+    assert!(lib_empty
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            EVENT_ID,
+            4,
+            EVENT_TEMPLATE,
+            "9534",
+            &nonces
+        )
+        .is_err());
+}
+
+#[test]
+fn test_sign_attestation_with_derived_nonces() {
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let oracle_pubkey = get_public_key(0, 0).unwrap();
+    let nonces = create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4).unwrap();
+
+    let sigs = sign_attestation_with_derived_nonces(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces,
+    )
+    .unwrap();
+    let sigs_split: Vec<_> = sigs.split(" ").collect();
+    assert_eq!(sigs_split.len(), 4);
+    assert!(verify_schnorr("Outcome:btcusd1741474920:0:9", sigs_split[0], 0, 0).unwrap());
+    assert!(verify_schnorr("Outcome:btcusd1741474920:3:4", sigs_split[3], 0, 0).unwrap());
+
+    // Errors: wrong pubkey for the indices, invalid nonce string, wrong nonce
+    assert!(sign_attestation_with_derived_nonces(
+        1,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces
+    )
+    .is_err());
+    assert!(sign_attestation_with_derived_nonces(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        "02ab"
+    )
+    .is_err());
+    let nonces_other_event =
+        create_derived_nonces(0, 0, &oracle_pubkey, "btcusd1741474921", 4).unwrap();
+    assert!(sign_attestation_with_derived_nonces(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        EVENT_TEMPLATE,
+        "9534",
+        &nonces_other_event
+    )
+    .is_err());
+}
+
+/// Full round trip: CET adaptor signatures created against the derived nonces
+/// can be decrypted with the attestation signatures
+/// Return the Oracle pubkey used.
+fn derived_nonces_round_trip(oracle_index5: u32) -> PublicKey {
+    let digits = 4 as u8;
+    let cet_wildcard = "95**";
+    let outcome_digits = "9534";
+    let sighash = dummy_bytes32(7);
+
+    // Oracle: announce nonces
+    let lib_ora = oracle3_lib();
+    let oracle_pubkey = lib_ora.get_child_public_key(0, oracle_index5).unwrap();
+    let nonces = lib_ora
+        .create_derived_nonces(0, oracle_index5, &oracle_pubkey, EVENT_ID, digits)
+        .unwrap();
+
+    // Other party: adaptor signature on the CET, against the announced nonces
+    let mut lib2 = Lib::new_empty();
+    lib2.init_with_entropy(&dummy_bytes32(2).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    let other_pubkey = lib2.get_child_public_key(0, 0).unwrap();
+    let other_adaptor_sigs = lib2
+        .create_cet_adaptor_sigs(
+            digits,
+            1,
+            EVENT_TEMPLATE,
+            &oracle_pubkey,
+            0,
+            0,
+            &other_pubkey,
+            &nonces,
+            &vec![cet_wildcard.to_string()],
+            &vec![sighash],
+        )
+        .unwrap();
+
+    // Oracle: attest the outcome
+    let oracle_signatures = lib_ora
+        .sign_attestation_with_derived_nonces(
+            0,
+            oracle_index5,
+            &oracle_pubkey,
+            EVENT_ID,
+            digits,
+            EVENT_TEMPLATE,
+            outcome_digits,
+            &nonces,
+        )
+        .unwrap();
+
+    // Ourselves: decrypt the other's adaptor signature and sign
+    let mut lib1 = Lib::new_empty();
+    lib1.init_with_entropy(&dummy_bytes32(1).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    let my_pubkey = lib1.get_child_public_key(0, 0).unwrap();
+    let (sig_of_other, my_sig) = lib1
+        .create_final_cet_sigs(
+            0,
+            0,
+            &my_pubkey,
+            &other_pubkey,
+            digits,
+            &oracle_signatures,
+            cet_wildcard,
+            &sighash,
+            &other_adaptor_sigs[0],
+        )
+        .unwrap();
+    assert!(verify_ecdsa_signature(&sighash, &sig_of_other, &other_pubkey, true).unwrap());
+    assert!(verify_ecdsa_signature(&sighash, &my_sig, &my_pubkey, true).unwrap());
+
+    // An attestation of an outcome outside the CET's range doesn't decrypt it
+    let oracle_signatures_other = lib_ora
+        .sign_attestation_with_derived_nonces(
+            0,
+            oracle_index5,
+            &oracle_pubkey,
+            EVENT_ID,
+            digits,
+            EVENT_TEMPLATE,
+            "9634",
+            &nonces,
+        )
+        .unwrap();
+    assert!(lib1
+        .create_final_cet_sigs(
+            0,
+            0,
+            &my_pubkey,
+            &other_pubkey,
+            digits,
+            &oracle_signatures_other,
+            cet_wildcard,
+            &sighash,
+            &other_adaptor_sigs[0],
+        )
+        .is_err());
+    oracle_pubkey
+}
+
+#[test]
+fn test_create_final_cet_sigs_derived_nonces_full() {
+    // Run with several Oracle keys, so that keys with both even and odd Y are covered
+    let mut prefixes = std::collections::HashSet::new();
+    for oracle_index5 in 0..6 {
+        let oracle_pubkey = derived_nonces_round_trip(oracle_index5);
+        prefixes.insert(oracle_pubkey.serialize()[0]);
+    }
+    assert_eq!(prefixes.len(), 2);
 }
 
 #[test]
