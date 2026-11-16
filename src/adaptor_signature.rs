@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-use bitcoin::hashes::{sha256, sha256t_hash_newtype, Hash};
+use bitcoin::hashes::{sha256, sha256t_hash_newtype, Hash, HashEngine};
 use bitcoin::hex::DisplayHex;
 use bitcoin::key::{Keypair, Secp256k1};
 use bitcoin::secp256k1::ecdsa::Signature;
@@ -116,6 +116,59 @@ pub(crate) fn sign_schnorr_with_nonce_sec<S: Signing>(
     let msg_msg = Message::from_digest(msg_hash);
     let sig = schnorrsig_sign_with_nonce(&secp, &msg_msg, &keypair, &nonce_sec);
     Ok(sig)
+}
+
+/// Tag of the tagged hash used in nonce derivation (`derive_nonce_secret`).
+/// Must not change once in use: changing it changes every derived nonce!
+const DERIVED_NONCE_TAG: &str = "DLCPlaza/derived-nonce";
+
+/// BIP340-style tagged hash: `SHA256(SHA256(tag) || SHA256(tag) || data)`
+fn tagged_hash(tag: &str, data: &[u8]) -> [u8; 32] {
+    let tag_hash = sha256::Hash::hash(tag.as_bytes()).to_byte_array();
+    let mut engine = sha256::Hash::engine();
+    engine.input(&tag_hash);
+    engine.input(&tag_hash);
+    engine.input(data);
+    sha256::Hash::from_engine(engine).to_byte_array()
+}
+
+/// Derive the secret nonce for an event and digit index, deterministically.
+///
+/// `k = tagged_hash("DLCPlaza/derived-nonce", oracle_seckey || oracle_pubkey || len(event_id)_BE32 || event_id || digit_index_BE32)`
+///
+/// This follows the BIP340 nonce construction (secret key, public key, message), without the aux randomness
+/// (the nonce has to be reproducible) and with its own tag.
+///
+/// Why each part of the input is there:
+/// - `oracle_seckey` (32 bytes), the Oracle signing key, makes the nonce secret.
+///   Without it, anyone could compute the nonce, and from an attestation, the Oracle key.
+///   It also gives each signing key its own nonces. This matters: the signing keys are non-hardened siblings
+///   (`x2 = x1 + t`, where `t` can be computed from the account xpub), so two keys signing with the same nonce
+///   would reveal the keys.
+/// - `oracle_pubkey` (33 bytes, compressed), the public key of the same signing key,
+///   binds the nonce to the key that signs (as in BIP340).
+/// - `event_id` (with length prefix) and `digit_index`: a different nonce for each event and digit.
+///
+/// The tag separates this hash from other uses of the same key (BIP340 signing, RFC6979 for ECDSA).
+///
+/// Must not change once in use: changing the tag, the input or its order changes every derived nonce.
+pub(crate) fn derive_nonce_secret(
+    oracle_keypair: &Keypair,
+    event_id: &str,
+    digit_index: u8,
+) -> Result<SecretKey, String> {
+    let event_id_len =
+        u32::try_from(event_id.len()).map_err(|_| "Event ID too long".to_string())?;
+    let mut preimage = Vec::with_capacity(32 + 33 + 4 + event_id.len() + 4);
+    preimage.extend_from_slice(&oracle_keypair.secret_bytes());
+    preimage.extend_from_slice(&oracle_keypair.public_key().serialize());
+    preimage.extend_from_slice(&event_id_len.to_be_bytes());
+    preimage.extend_from_slice(event_id.as_bytes());
+    preimage.extend_from_slice(&(digit_index as u32).to_be_bytes());
+    let hash = tagged_hash(DERIVED_NONCE_TAG, &preimage);
+    // Fails if the hash is zero or not below the curve order (practically never).
+    // Don't retry with another input: return an error.
+    SecretKey::from_slice(&hash).map_err(|e| format!("Invalid derived nonce {}", e))
 }
 
 /// Compute a signature point for the given public key, nonce and message.
