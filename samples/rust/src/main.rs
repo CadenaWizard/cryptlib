@@ -22,4 +22,16 @@ fn main() {
     let hash = "0001020300000000000000000000000000000000000000000000000000010203";
     let sig = dlccryptlib::sign_hash_ecdsa(hash, 0, 0, &pubkey0).unwrap();
     println!("signature: {sig}");
+
+    // Oracle: derived nonces for an event with 4 digits, then the attestation of the value 9534.
+    // An event must be attested only once: signing another outcome for it reveals the Oracle key.
+    let event_id = "btcusd1741474920";
+    let template = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
+    let nonces = dlccryptlib::create_derived_nonces(0, 0, &pubkey0, event_id, 4).unwrap();
+    println!("nonces: {nonces}");
+    let attestation = dlccryptlib::sign_attestation_with_derived_nonces(
+        0, 0, &pubkey0, event_id, 4, template, "9534", &nonces,
+    )
+    .unwrap();
+    println!("attestation: {attestation}");
 }

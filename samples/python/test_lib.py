@@ -32,3 +32,28 @@ print('Sign again: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce1_se
 
 # Sign with different nonce
 print('Sign with other nonce: ', dlccryptlib_py.sign_schnorr_with_nonce(event_id, nonce2_sec, 0, 0))
+
+# Derived nonces: deterministic, from the master secret, the Oracle pubkey, the event ID and the digit index.
+# The secret nonces never leave the library.
+event_id = "btcusd1741474920"
+template = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}"
+nonces = dlccryptlib_py.create_derived_nonces(0, 0, pubkey0, event_id, 4)
+print('Derived nonces', nonces)
+assert len(nonces.split(" ")) == 4
+assert dlccryptlib_py.create_derived_nonces(0, 0, pubkey0, event_id, 4) == nonces
+assert dlccryptlib_py.verify_derived_nonces(0, 0, pubkey0, event_id, 4, nonces)
+assert not dlccryptlib_py.verify_derived_nonces(0, 0, pubkey0, "other_event", 4, nonces)
+
+# Attest the value 9534. An event must be attested only once: signing another outcome for it reveals the Oracle key.
+attestation = dlccryptlib_py.sign_attestation_with_derived_nonces(0, 0, pubkey0, event_id, 4, template, "9534", nonces)
+print('Attestation', attestation)
+sigs = attestation.split(" ")
+assert len(sigs) == 4
+assert dlccryptlib_py.verify_schnorr("Outcome:btcusd1741474920:0:9", sigs[0], 0, 0)
+
+# Wrong index for the pubkey: error
+try:
+    dlccryptlib_py.create_derived_nonces(0, 1, pubkey0, event_id, 4)
+    assert False, "Expected an error"
+except Exception as e:
+    print('Expected error:', e)
