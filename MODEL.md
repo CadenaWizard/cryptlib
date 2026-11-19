@@ -227,7 +227,7 @@ m = \mathrm{SHA256}(\text{outcome string})
 
 > Note: this is plain SHA-256 of the string. The [dlcspecs](https://github.com/discreetlogcontracts/dlcspecs) instead use a tagged hash (`DLC/oracle/attestation/v0`), so the two are not wire-compatible.
 
-**Nonce.** The Oracle generates (or derives) $k$ ahead of time and publishes $R = kG$ in the event announcement (see [A.6](#a6-nonce-generation)).
+**Nonce.** The Oracle derives $k$ ahead of time and publishes $R = kG$ in the event announcement (see [A.6](#a6-nonce-generation)).
 
 **Signing.** BIP340 signing, except that the nonce is the pre-committed $k$ instead of one derived from the message (`schnorrsig_sign_with_nonce`, which plugs a constant-nonce function into `secp256k1_schnorrsig_sign_custom`):
 
@@ -337,21 +337,7 @@ The binary event in the main text is the special case of a single digit with onl
 
 The Oracle's per-event nonces must be **unpredictable** and **never reused**. Anyone who learns $k$ can compute $x_O = (s - k)/e$ from one attestation.
 
-`create_nonce(event_id, index)` derives:
-
-```math
-k = \mathrm{SHA256}(\text{nonce\_seed} \parallel \text{event\_id} \parallel \text{index}_{\text{BE32}} \parallel \text{aux\_rand}_{32})
-```
-
-- `nonce_seed`: derived from the master secret and used only for this. Without it, nobody else can compute the nonce.
-- `event_id`, `index`: domain separation, so different events and digits never collide.
-- `aux_rand`: 32 bytes of fresh OS randomness. Even the master-secret holder can't reproduce the nonce, which guards against a buggy or duplicated derivation.
-
-Since the result is not reproducible, the Oracle has to **store** the secret nonce until it attests.
-
-#### Derived nonces
-
-Alternatively, the nonces can be derived **deterministically**, so the Oracle doesn't have to store secret nonces: the library recomputes them when it attests. The secret nonce never leaves the library.
+The nonces are derived **deterministically**, so the Oracle doesn't have to store secret nonces: the library recomputes them when it attests. The secret nonce never leaves the library.
 
 `create_derived_nonces(index4, index5, oracle_pubkey, event_id, num_digits)` derives, for each digit index $d$ (`derive_nonce_secret`):
 

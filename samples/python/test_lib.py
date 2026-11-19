@@ -15,7 +15,7 @@ address0 = dlccryptlib_py.get_address(0, 0)
 print('Address 0', address0)
 
 event_id = "event001"
-# Fixed nonce values, for testing only. A real nonce comes from create_nonce and must never be reused.
+# Fixed nonce values, for testing only. Real nonces come from create_derived_nonces and must never be reused.
 nonce0_pub = "03ff8bb21842afb52a2e5d1f6f641b769b1cbf2344548184b2eac9dec426d87aeb"
 print('Nonce 0 (pub)', nonce0_pub)
 nonce1_sec = "a3bc5c98f60eee22a4b837812a528bf7e38c5bec43fe5ed39913e9cf8137b88d"

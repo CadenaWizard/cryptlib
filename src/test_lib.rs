@@ -7,11 +7,11 @@ use crate::adaptor_signature::{
     validate_digit_string_template, verify_ecdsa_signature,
 };
 use crate::{
-    combine_pubkeys, combine_seckeys, create_derived_nonces, create_nonce, get_public_key,
-    init_with_entropy, keypair_from_sec_key_hex, sign_attestation_with_derived_nonces,
-    sign_schnorr_with_nonce, verify_derived_nonces, verify_public_key, verify_schnorr, Lib,
+    combine_pubkeys, combine_seckeys, create_derived_nonces, get_public_key, init_with_entropy,
+    keypair_from_sec_key_hex, sign_attestation_with_derived_nonces, sign_schnorr_with_nonce,
+    verify_derived_nonces, verify_public_key, verify_schnorr, Lib,
 };
-use bitcoin::hex::{DisplayHex, FromHex};
+use bitcoin::hex::DisplayHex;
 use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1};
 use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
 use secp256k1_zkp::EcdsaAdaptorSignature;
@@ -136,32 +136,6 @@ fn test_sign_hash_ecdsa() {
     // negative test, wrong index
     assert!(lib.sign_hash_ecdsa(&hash, 0, 31, &pubkey3).is_err());
     assert!(lib.sign_hash_ecdsa(&hash, 1, 3, &pubkey3).is_err());
-}
-
-#[test]
-fn test_create_nonce() {
-    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
-
-    let (sk1, pk1) = create_nonce("event01", 0).unwrap();
-    assert_eq!(sk1.len(), 64);
-    assert_eq!(pk1.len(), 66);
-    assert_ne!(sk1, pk1);
-    let (sk2, pk2) = create_nonce("event01", 1).unwrap();
-    assert_ne!(sk1, sk2);
-    assert_ne!(pk1, pk2);
-
-    // Nonce generation now folds in fresh randomness: repeated calls with the
-    // same event_id/index must not reproduce the same secret.
-    let (sk3, pk3) = create_nonce("event01", 0).unwrap();
-    assert_ne!(sk1, sk3);
-    assert_ne!(pk1, pk3);
-}
-
-#[test]
-fn test_create_nonce_requires_initialized_wallet() {
-    // Without a wallet (no master-key-derived seed available), nonce creation must fail.
-    let lib = Lib::new_empty();
-    assert!(lib.create_nonce("event01", 0).is_err());
 }
 
 // Oracle pubkey of the child key (0, 0), for entropy dummy_bytes32(3)
@@ -1309,34 +1283,22 @@ fn test_create_final_cet_sigs_full() {
         "020a5e571a47cc259d3cc0454a8b7e58bba16e01156bb72d0ce490823f51117cce"
     );
 
-    // Prepare nonces
-    let mut nonces_sec_vec = Vec::new();
-    let mut nonces_pub_vec = Vec::new();
-    for i in 0..(digits as usize) {
-        let (nsec, npub) = lib_ora.create_nonce(event_id, i as u32).unwrap();
-        nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
-        nonces_pub_vec.push(npub.clone());
-    }
-    // Nonces now fold in fresh randomness, so exact values aren't reproducible;
-    // check structural validity and pairwise distinctness instead.
-    assert_eq!(nonces_pub_vec.len(), digits as usize);
-    for i in 0..nonces_pub_vec.len() {
-        for j in (i + 1)..nonces_pub_vec.len() {
-            assert_ne!(nonces_pub_vec[i], nonces_pub_vec[j]);
-        }
-    }
-
-    let mut oracle_signatures = Vec::new();
-    for i in 0..(digits as usize) {
-        let digit_value = final_cet_wildcard.chars().collect::<Vec<_>>()[i as usize];
-        let digit_string = digits_template_string
-            .replace("{digit_index}", &format!("{}", i))
-            .replace("{digit_outcome}", &format!("{}", digit_value));
-        let sig = lib_ora
-            .sign_schnorr_with_nonce(&digit_string, &nonces_sec_vec[i], 0, 0)
-            .unwrap();
-        oracle_signatures.push(sig);
-    }
+    // Nonces and attestation, with derived nonces
+    let nonces_pub_vec = lib_ora
+        .create_derived_nonces(0, 0, &oracle_pubkey, event_id, digits)
+        .unwrap();
+    let oracle_signatures = lib_ora
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            event_id,
+            digits,
+            digits_template_string,
+            final_cet_wildcard,
+            &nonces_pub_vec,
+        )
+        .unwrap();
 
     // Second, create adaptor sig of other
     let mut lib2 = Lib::new_empty();
@@ -1468,34 +1430,22 @@ fn test_create_final_cet_sig_full() {
         "020a5e571a47cc259d3cc0454a8b7e58bba16e01156bb72d0ce490823f51117cce"
     );
 
-    // Prepare nonces
-    let mut nonces_sec_vec = Vec::new();
-    let mut nonces_pub_vec = Vec::new();
-    for i in 0..(digits as usize) {
-        let (nsec, npub) = lib_ora.create_nonce(event_id, i as u32).unwrap();
-        nonces_sec_vec.push(<[u8; 32]>::from_hex(&nsec).unwrap());
-        nonces_pub_vec.push(npub.clone());
-    }
-    // Nonces now fold in fresh randomness, so exact values aren't reproducible;
-    // check structural validity and pairwise distinctness instead.
-    assert_eq!(nonces_pub_vec.len(), digits as usize);
-    for i in 0..nonces_pub_vec.len() {
-        for j in (i + 1)..nonces_pub_vec.len() {
-            assert_ne!(nonces_pub_vec[i], nonces_pub_vec[j]);
-        }
-    }
-
-    let mut oracle_signatures = Vec::new();
-    for i in 0..(digits as usize) {
-        let digit_value = final_cet_wildcard.chars().collect::<Vec<_>>()[i as usize];
-        let digit_string = digits_template_string
-            .replace("{digit_index}", &format!("{}", i))
-            .replace("{digit_outcome}", &format!("{}", digit_value));
-        let sig = lib_ora
-            .sign_schnorr_with_nonce(&digit_string, &nonces_sec_vec[i], 0, 0)
-            .unwrap();
-        oracle_signatures.push(sig);
-    }
+    // Nonces and attestation, with derived nonces
+    let nonces_pub_vec = lib_ora
+        .create_derived_nonces(0, 0, &oracle_pubkey, event_id, digits)
+        .unwrap();
+    let oracle_signatures = lib_ora
+        .sign_attestation_with_derived_nonces(
+            0,
+            0,
+            &oracle_pubkey,
+            event_id,
+            digits,
+            digits_template_string,
+            final_cet_wildcard,
+            &nonces_pub_vec,
+        )
+        .unwrap();
 
     let mut lib1 = Lib::new_empty();
     let _xpub = lib1

@@ -10,12 +10,9 @@ use crate::adaptor_signature::{
 use crate::hd_wallet_storage::HDWalletStorage;
 
 use bitcoin::bip32::Xpub;
-use bitcoin::hashes::{sha256, Hash};
-use bitcoin::hex::DisplayHex;
 use bitcoin::key::{Keypair, Secp256k1};
 use bitcoin::secp256k1::{All, PublicKey, SecretKey};
 use bitcoin::Address;
-use secp256k1_zkp::rand::{rngs::OsRng, RngCore};
 use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
 use secp256k1_zkp::{EcdsaAdaptorSignature, Scalar};
 use std::sync::{OnceLock, RwLock};
@@ -135,39 +132,6 @@ impl Lib {
             self.verify_child_public_key_intern(index4, index5, signer_pubkey, "Signer pubkey")?;
 
         sign_hash_ecdsa_with_key(&self.secp, hash, &keypair.secret_key())
-    }
-
-    /// Create an unpredictable nonce for an event/digit-index.
-    /// The secret combines: a value derived from the master key (so it cannot be
-    /// computed by anyone without the master secret), the event ID and digit index
-    /// (so different events/digits never collide), and fresh randomness (so the
-    /// result is not reproducible even by whoever holds the master secret, hedging
-    /// against a broken/duplicated derivation).
-    pub(crate) fn create_nonce(
-        &self,
-        event_id: &str,
-        index: u32,
-    ) -> Result<(String, PublicKey), String> {
-        let hd_wallet = if let Some(hd_wallet) = &self.hd_wallet_storage {
-            hd_wallet
-        } else {
-            return Err("Library not initialized!".to_string());
-        };
-        let nonce_seed = hd_wallet.get_nonce_seed()?;
-
-        let mut aux_rand = [0u8; 32];
-        OsRng.fill_bytes(&mut aux_rand);
-
-        let mut preimage = Vec::with_capacity(32 + event_id.len() + 4 + 32);
-        preimage.extend_from_slice(&nonce_seed.secret_bytes());
-        preimage.extend_from_slice(event_id.as_bytes());
-        preimage.extend_from_slice(&index.to_be_bytes());
-        preimage.extend_from_slice(&aux_rand);
-        let hash = sha256::Hash::hash(&preimage).to_byte_array();
-
-        let secretkey = SecretKey::from_slice(&hash).map_err(|e| e.to_string())?;
-        let publickey = secretkey.public_key(&self.secp);
-        Ok((hash.to_lower_hex_string(), publickey))
     }
 
     /// Derive the secret nonce (keypair) for an event and digit index, from the Oracle signing key.
