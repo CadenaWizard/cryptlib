@@ -227,6 +227,44 @@ impl Lib {
             .collect()
     }
 
+    /// Check that a public nonce is the derived nonce for the event and digit index.
+    /// Compares x-only, so the nonce may be given with either parity.
+    fn verify_derived_nonce(
+        &self,
+        oracle_keypair: &Keypair,
+        event_id: &str,
+        digit_index: u8,
+        nonce_pub: &PublicKey,
+    ) -> Result<bool, String> {
+        let derived = self.create_derived_nonce(oracle_keypair, event_id, digit_index)?;
+        Ok(derived.x_only_public_key().0 == nonce_pub.x_only_public_key().0)
+    }
+
+    /// Check that the given public nonces are the derived nonces for the event, one for each digit.
+    /// `oracle_pubkey` is checked against the child key at `(index4, index5)`; a mismatch is an error,
+    /// as is a wrong number of nonces.
+    /// Return `false` if any of the nonces is not the derived nonce for its digit.
+    pub(crate) fn verify_derived_nonces(
+        &self,
+        index4: u32,
+        index5: u32,
+        oracle_pubkey: &PublicKey,
+        event_id: &str,
+        num_digits: u8,
+        nonces: &Vec<PublicKey>,
+    ) -> Result<bool, String> {
+        self.verify_oracle_pubkey(index4, index5, oracle_pubkey)?;
+        let oracle_keypair = self.get_child_keypair(index4, index5)?;
+        check_num_digits(num_digits)?;
+        check_num_nonces(nonces, num_digits)?;
+        for d in 0..num_digits {
+            if !self.verify_derived_nonce(&oracle_keypair, event_id, d, &nonces[d as usize])? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     /// Sign a message using Schnorr, using a child key
     pub(crate) fn sign_schnorr_with_nonce(
         &self,
@@ -387,6 +425,17 @@ impl Lib {
 fn check_num_digits(num_digits: u8) -> Result<(), String> {
     if num_digits == 0 {
         return Err("Number of digits must be at least 1".to_string());
+    }
+    Ok(())
+}
+
+fn check_num_nonces(nonces: &Vec<PublicKey>, num_digits: u8) -> Result<(), String> {
+    if nonces.len() != num_digits as usize {
+        return Err(format!(
+            "Wrong number of nonces {} {}",
+            nonces.len(),
+            num_digits
+        ));
     }
     Ok(())
 }

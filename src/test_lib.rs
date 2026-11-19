@@ -8,8 +8,8 @@ use crate::adaptor_signature::{
 };
 use crate::{
     combine_pubkeys, combine_seckeys, create_derived_nonces, create_nonce, get_public_key,
-    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
-    verify_schnorr, Lib,
+    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_derived_nonces,
+    verify_public_key, verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1};
@@ -349,6 +349,112 @@ fn test_create_derived_nonces() {
     // Errors: wrong pubkey for the indices, invalid pubkey string
     assert!(create_derived_nonces(1, 0, &oracle_pubkey, EVENT_ID, 4).is_err());
     assert!(create_derived_nonces(0, 0, "02abcd", EVENT_ID, 4).is_err());
+}
+
+#[test]
+fn test_verify_derived_nonces_lib() {
+    let secp = Secp256k1::new();
+    let lib = oracle3_lib();
+    let oracle_pubkey = lib.get_child_public_key(0, 0).unwrap();
+    let nonces = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    let verify = |index4: u32,
+                  index5: u32,
+                  pubkey: &PublicKey,
+                  event_id: &str,
+                  num_digits: u8,
+                  nonces: &Vec<PublicKey>| {
+        lib.verify_derived_nonces(index4, index5, pubkey, event_id, num_digits, nonces)
+    };
+
+    assert_eq!(verify(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces), Ok(true));
+
+    // Compared x-only: a nonce with the other parity is accepted
+    let mut nonces_other_parity = nonces.clone();
+    nonces_other_parity[1] = nonces[1].negate(&secp);
+    assert_ne!(nonces_other_parity[1], nonces[1]);
+    assert_eq!(
+        verify(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces_other_parity),
+        Ok(true)
+    );
+
+    // Not the derived nonces: false
+    assert_eq!(
+        verify(0, 0, &oracle_pubkey, "btcusd1741474921", 4, &nonces),
+        Ok(false)
+    );
+    let mut nonces_swapped = nonces.clone();
+    nonces_swapped.swap(0, 1);
+    assert_eq!(
+        verify(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces_swapped),
+        Ok(false)
+    );
+    let mut nonces_one_wrong = nonces.clone();
+    nonces_one_wrong[3] = create_dummy_pubkey(9);
+    assert_eq!(
+        verify(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces_one_wrong),
+        Ok(false)
+    );
+    // Nonces derived for another key of the same wallet
+    let other_pubkey = lib.get_child_public_key(0, 1).unwrap();
+    let nonces_other_key = lib
+        .create_derived_nonces(0, 1, &other_pubkey, EVENT_ID, 4)
+        .unwrap();
+    assert_eq!(
+        verify(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces_other_key),
+        Ok(false)
+    );
+
+    // Wrong number of nonces: error
+    assert!(verify(0, 0, &oracle_pubkey, EVENT_ID, 3, &nonces).is_err());
+    assert!(verify(0, 0, &oracle_pubkey, EVENT_ID, 5, &nonces).is_err());
+    assert!(verify(0, 0, &oracle_pubkey, EVENT_ID, 0, &vec![]).is_err());
+
+    // Pubkey doesn't match the indices: error
+    let err = verify(1, 0, &oracle_pubkey, EVENT_ID, 4, &nonces)
+        .err()
+        .unwrap();
+    assert!(
+        err.starts_with("Oracle pubkey mismatch, index 1/0"),
+        "{}",
+        err
+    );
+    assert!(verify(0, 0, &other_pubkey, EVENT_ID, 4, &nonces).is_err());
+}
+
+#[test]
+fn test_verify_derived_nonces() {
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let oracle_pubkey = get_public_key(0, 0).unwrap();
+    let nonces = create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4).unwrap();
+
+    assert_eq!(
+        verify_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4, &nonces),
+        Ok(true)
+    );
+    // Extra spaces are ignored
+    assert_eq!(
+        verify_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4, &format!(" {}  ", nonces)),
+        Ok(true)
+    );
+    assert_eq!(
+        verify_derived_nonces(0, 0, &oracle_pubkey, "btcusd1741474921", 4, &nonces),
+        Ok(false)
+    );
+
+    // Errors: wrong pubkey for the indices, wrong number of nonces, invalid nonce string
+    assert!(verify_derived_nonces(0, 1, &oracle_pubkey, EVENT_ID, 4, &nonces).is_err());
+    assert!(verify_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 5, &nonces).is_err());
+    assert!(verify_derived_nonces(
+        0,
+        0,
+        &oracle_pubkey,
+        EVENT_ID,
+        4,
+        &format!("{} 02ab", nonces)
+    )
+    .is_err());
 }
 
 #[test]
