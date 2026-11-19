@@ -3,14 +3,15 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 use crate::adaptor_signature::{
-    create_digit_adaptor_sig_point, validate_digit_string_template, verify_ecdsa_signature,
+    create_digit_adaptor_sig_point, derive_nonce_secret, digit_message,
+    validate_digit_string_template, verify_ecdsa_signature,
 };
 use crate::{
     combine_pubkeys, combine_seckeys, create_nonce, get_public_key, init_with_entropy,
     keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key, verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
-use bitcoin::secp256k1::{PublicKey, Secp256k1};
+use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1};
 use secp256k1_zkp::schnorr::Signature as SchnorrSignature;
 use secp256k1_zkp::EcdsaAdaptorSignature;
 use std::str::FromStr;
@@ -160,6 +161,50 @@ fn test_create_nonce_requires_initialized_wallet() {
     // Without a wallet (no master-key-derived seed available), nonce creation must fail.
     let lib = Lib::new_empty();
     assert!(lib.create_nonce("event01", 0).is_err());
+}
+
+const EVENT_ID: &str = "btcusd1741474920";
+
+#[test]
+fn test_derive_nonce_secret() {
+    // Expected values computed independently (Python hashlib), from the documented formula:
+    // tagged_hash("DLCPlaza/derived-nonce", oracle_seckey || oracle_pubkey || len(event_id)_BE32 || event_id || digit_index_BE32)
+    // Secret keys 1 and 2, with the public keys G and 2G
+    let secp = Secp256k1::new();
+    let oracle_keypair = Keypair::from_seckey_slice(&secp, &dummy_bytes32(1)).unwrap();
+    assert_eq!(
+        oracle_keypair.public_key().to_string(),
+        "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    );
+    let derive = |keypair: &Keypair, event_id: &str, digit_index: u8| -> String {
+        derive_nonce_secret(keypair, event_id, digit_index)
+            .unwrap()
+            .secret_bytes()
+            .to_lower_hex_string()
+    };
+    assert_eq!(
+        derive(&oracle_keypair, EVENT_ID, 0),
+        "c378d754df0c0bf7fc5ffa291f52ccc53b21865defded5ebe1671662d8f0637c"
+    );
+    assert_eq!(
+        derive(&oracle_keypair, EVENT_ID, 2),
+        "6322025fcba240d3745f8b7331b9411b0ff7794632d1cdeeb661ed2d07eec2e6"
+    );
+    assert_eq!(
+        derive(&oracle_keypair, "", 0),
+        "167e65fcc79da25ca19d00b8a3215af4f535af889122687234637adbc3effc66"
+    );
+
+    // Different signing key, different nonce
+    let other_keypair = Keypair::from_seckey_slice(&secp, &dummy_bytes32(2)).unwrap();
+    assert_eq!(
+        other_keypair.public_key().to_string(),
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+    );
+    assert_eq!(
+        derive(&other_keypair, EVENT_ID, 0),
+        "4aed3d93b562bd3994e3a77a3aafd464860f7e087607a23cfbec7131f0489fe1"
+    );
 }
 
 #[test]
@@ -404,6 +449,28 @@ fn test_validate_digit_string_template() {
     assert_ne!(
         sig_point("Outcome:{digit_index}:{digit_index}:{digit_outcome}:{digit_outcome}"),
         sig_point("Outcome:{digit_index}:{digit_outcome}")
+    );
+}
+
+#[test]
+fn test_digit_message() {
+    assert_eq!(
+        digit_message(
+            "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}",
+            2,
+            7
+        ),
+        "Outcome:btcusd1741474920:2:7"
+    );
+    // Plain decimal numbers, without padding
+    assert_eq!(
+        digit_message("Outcome:{digit_index}:{digit_outcome}", 12, 0),
+        "Outcome:12:0"
+    );
+    // Every occurrence is substituted
+    assert_eq!(
+        digit_message("{digit_outcome}{digit_index}:{digit_index}", 3, 9),
+        "93:3"
     );
 }
 
