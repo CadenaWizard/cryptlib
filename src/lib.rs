@@ -105,8 +105,8 @@ pub fn create_nonce(event_id: &str, index: u32) -> Result<(String, String), Stri
     Ok((sk, pk.to_string()))
 }
 
+/// Create the derived public nonces for an event, one for each digit.
 /// The nonces are derived deterministically from the Oracle secret key, the Oracle pubkey,
-/// The nonces are derived deterministically from the master secret, the Oracle pubkey,
 /// the event ID and the digit index, so the secret nonces don't have to be stored.
 /// `oracle_pubkey` must be the child key at `(index4, index5)`, otherwise an error is returned.
 /// Return the public nonces (33-byte compressed, hex), separated by spaces.
