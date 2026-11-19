@@ -104,6 +104,34 @@ pub fn create_nonce(event_id: &str, index: u32) -> Result<(String, String), Stri
     Ok((sk, pk.to_string()))
 }
 
+/// The nonces are derived deterministically from the Oracle secret key, the Oracle pubkey,
+/// The nonces are derived deterministically from the master secret, the Oracle pubkey,
+/// the event ID and the digit index, so the secret nonces don't have to be stored.
+/// `oracle_pubkey` must be the child key at `(index4, index5)`, otherwise an error is returned.
+/// Return the public nonces (33-byte compressed, hex), separated by spaces.
+pub fn create_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey_str: &str,
+    event_id: &str,
+    num_digits: u8,
+) -> Result<String, String> {
+    let oracle_pubkey = pubkey_from_hex(oracle_pubkey_str)
+        .map_err(|e| format!("Failed to parse oracle pubkey {}", e))?;
+    let nonces = global_lib().read().unwrap().create_derived_nonces(
+        index4,
+        index5,
+        &oracle_pubkey,
+        event_id,
+        num_digits,
+    )?;
+    Ok(nonces
+        .iter()
+        .map(|n| n.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 // Schnorr signing with nonce
 pub fn sign_schnorr_with_nonce(
     msg: &str,

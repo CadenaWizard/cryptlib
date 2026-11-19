@@ -7,8 +7,9 @@ use crate::adaptor_signature::{
     validate_digit_string_template, verify_ecdsa_signature,
 };
 use crate::{
-    combine_pubkeys, combine_seckeys, create_nonce, get_public_key, init_with_entropy,
-    keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key, verify_schnorr, Lib,
+    combine_pubkeys, combine_seckeys, create_derived_nonces, create_nonce, get_public_key,
+    init_with_entropy, keypair_from_sec_key_hex, sign_schnorr_with_nonce, verify_public_key,
+    verify_schnorr, Lib,
 };
 use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1};
@@ -163,7 +164,17 @@ fn test_create_nonce_requires_initialized_wallet() {
     assert!(lib.create_nonce("event01", 0).is_err());
 }
 
+// Oracle pubkey of the child key (0, 0), for entropy dummy_bytes32(3)
+const ORACLE3_PUBKEY_STR: &str =
+    "020a5e571a47cc259d3cc0454a8b7e58bba16e01156bb72d0ce490823f51117cce";
 const EVENT_ID: &str = "btcusd1741474920";
+
+fn oracle3_lib() -> Lib {
+    let mut lib = Lib::new_empty();
+    lib.init_with_entropy(&dummy_bytes32(3).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    lib
+}
 
 #[test]
 fn test_derive_nonce_secret() {
@@ -205,6 +216,139 @@ fn test_derive_nonce_secret() {
         derive(&other_keypair, EVENT_ID, 0),
         "4aed3d93b562bd3994e3a77a3aafd464860f7e087607a23cfbec7131f0489fe1"
     );
+}
+
+#[test]
+fn test_create_derived_nonces_lib() {
+    let lib = oracle3_lib();
+    let oracle_pubkey = lib.get_child_public_key(0, 0).unwrap();
+    assert_eq!(oracle_pubkey.to_string(), ORACLE3_PUBKEY_STR);
+
+    let nonces = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    assert_eq!(nonces.len(), 4);
+    // Fixed values, to catch any change in the derivation
+    assert_eq!(
+        nonces[0].to_string(),
+        "02f58100c3b1a0aa65b173a2db329d77ede4c7d7a2617ee577f3408f77cac1c1f1"
+    );
+    assert_eq!(
+        nonces[3].to_string(),
+        "038584fc293d0b45cd50b00f9a13a859cd313059d89c7450d3134cd9be834e8de8"
+    );
+    // Different for each digit
+    for i in 0..nonces.len() {
+        for j in (i + 1)..nonces.len() {
+            assert_ne!(nonces[i], nonces[j]);
+        }
+    }
+
+    // Same across calls, also from another instance with the same secret
+    let nonces2 = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    assert_eq!(nonces2, nonces);
+    let nonces3 = oracle3_lib()
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    assert_eq!(nonces3, nonces);
+
+    // Fewer digits: the same nonces, prefix
+    let nonces_2digits = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 2)
+        .unwrap();
+    assert_eq!(nonces_2digits, nonces[0..2].to_vec());
+
+    // Different event: different nonces
+    let nonces_other_event = lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, "btcusd1741474921", 4)
+        .unwrap();
+    for i in 0..nonces.len() {
+        assert_ne!(nonces_other_event[i], nonces[i]);
+    }
+
+    // Different signing key, same event: different nonces
+    let other_pubkey = lib.get_child_public_key(0, 1).unwrap();
+    let nonces_other_key = lib
+        .create_derived_nonces(0, 1, &other_pubkey, EVENT_ID, 4)
+        .unwrap();
+    for i in 0..nonces.len() {
+        assert_ne!(nonces_other_key[i], nonces[i]);
+    }
+
+    // Different master secret: different nonces
+    let mut lib_other = Lib::new_empty();
+    lib_other
+        .init_with_entropy(&dummy_bytes32(4).to_vec(), DEFAULT_NETWORK)
+        .unwrap();
+    let other_oracle_pubkey = lib_other.get_child_public_key(0, 0).unwrap();
+    let nonces_other_secret = lib_other
+        .create_derived_nonces(0, 0, &other_oracle_pubkey, EVENT_ID, 4)
+        .unwrap();
+    for i in 0..nonces.len() {
+        assert_ne!(nonces_other_secret[i], nonces[i]);
+    }
+}
+
+#[test]
+fn test_create_derived_nonces_lib_errors() {
+    let lib = oracle3_lib();
+    let oracle_pubkey = lib.get_child_public_key(0, 0).unwrap();
+
+    // Pubkey doesn't match the indices
+    let err = lib
+        .create_derived_nonces(0, 1, &oracle_pubkey, EVENT_ID, 4)
+        .err()
+        .unwrap();
+    assert!(
+        err.starts_with("Oracle pubkey mismatch, index 0/1"),
+        "{}",
+        err
+    );
+    let err = lib
+        .create_derived_nonces(0, 0, &create_dummy_pubkey(9), EVENT_ID, 4)
+        .err()
+        .unwrap();
+    assert!(
+        err.starts_with("Oracle pubkey mismatch, index 0/0"),
+        "{}",
+        err
+    );
+
+    // No digits
+    assert!(lib
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 0)
+        .is_err());
+
+    // Library not initialized
+    let lib_empty = Lib::new_empty();
+    assert!(lib_empty
+        .create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4)
+        .is_err());
+}
+
+#[test]
+fn test_create_derived_nonces() {
+    let _xpub = init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let oracle_pubkey = get_public_key(0, 0).unwrap();
+
+    let nonces = create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4).unwrap();
+    let nonces_split: Vec<_> = nonces.split(" ").collect();
+    assert_eq!(nonces_split.len(), 4);
+    for n in &nonces_split {
+        assert_eq!(n.len(), 66);
+        assert!(PublicKey::from_str(n).is_ok());
+    }
+    // Same across calls
+    assert_eq!(
+        create_derived_nonces(0, 0, &oracle_pubkey, EVENT_ID, 4).unwrap(),
+        nonces
+    );
+
+    // Errors: wrong pubkey for the indices, invalid pubkey string
+    assert!(create_derived_nonces(1, 0, &oracle_pubkey, EVENT_ID, 4).is_err());
+    assert!(create_derived_nonces(0, 0, "02abcd", EVENT_ID, 4).is_err());
 }
 
 #[test]
