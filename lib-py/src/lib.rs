@@ -66,16 +66,6 @@ pub fn sign_hash_ecdsa(
         .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
-/// Create an unpredictable (random, secret master-key-seeded) nonce value
-#[pyfunction]
-pub fn create_nonce(
-    event_id: String,
-    nonce_index: u32,
-) -> PyResult<(String, String)> {
-    dlccryptlib::create_nonce(&event_id, nonce_index)
-        .map_err(|e| PyErr::new::<PyException, _>(e))
-}
-
 /// Create the derived public nonces for an event, one for each digit.
 /// Deterministic: derived from the Oracle secret key, the Oracle pubkey, the event ID and the digit index.
 /// `oracle_pubkey` must be the child key at `(index4, index5)`.
@@ -299,7 +289,6 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_address, m)?)?;
     m.add_function(wrap_pyfunction!(verify_public_key, m)?)?;
     m.add_function(wrap_pyfunction!(sign_hash_ecdsa, m)?)?;
-    m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(create_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(verify_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(sign_attestation_with_derived_nonces, m)?)?;
