@@ -160,6 +160,51 @@ pub fn verify_derived_nonces(
     )
 }
 
+/// Create the Oracle attestation for an event: one Schnorr signature for each digit,
+/// using the derived nonces (see `create_derived_nonces`).
+/// - `oracle_pubkey`: the signing key, must be the child key at `(index4, index5)`.
+/// - `digit_string_template`: the template already resolved for this event,
+///   containing `{digit_index}` and `{digit_outcome}`.
+/// - `digit_values`: the attested value, one decimal character for each digit, e.g. "0096300".
+/// - `nonces`: the announced public nonces (space-separated), checked against the derived nonces.
+/// Return the signatures (hex), separated by spaces, or an error. Nothing is signed if any check fails.
+///
+/// WARNING: signing two different outcomes for the same event reveals the Oracle secret key.
+/// The library keeps no state, so the caller has to make sure an event is attested only once.
+pub fn sign_attestation_with_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey_str: &str,
+    event_id: &str,
+    num_digits: u8,
+    digit_string_template: &str,
+    digit_values: &str,
+    nonces_str: &str,
+) -> Result<String, String> {
+    let oracle_pubkey = pubkey_from_hex(oracle_pubkey_str)
+        .map_err(|e| format!("Failed to parse oracle pubkey {}", e))?;
+    let nonces =
+        pubkeys_from_hex_list(nonces_str).map_err(|e| format!("Failed to parse nonces {}", e))?;
+    let signatures = global_lib()
+        .read()
+        .unwrap()
+        .sign_attestation_with_derived_nonces(
+            index4,
+            index5,
+            &oracle_pubkey,
+            event_id,
+            num_digits,
+            digit_string_template,
+            digit_values,
+            &nonces,
+        )?;
+    Ok(signatures
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 // Schnorr signing with nonce
 pub fn sign_schnorr_with_nonce(
     msg: &str,

@@ -116,6 +116,37 @@ pub fn verify_derived_nonces(
     .map_err(|e| PyErr::new::<PyException, _>(e))
 }
 
+/// Create the Oracle attestation for an event: one Schnorr signature for each digit,
+/// using the derived nonces. `oracle_pubkey` must be the child key at `(index4, index5)`.
+/// `digit_values`: one decimal character for each digit, e.g. "0096300".
+/// `nonces`: the announced public nonces (space-separated), checked against the derived nonces.
+/// Return the signatures, separated by spaces.
+/// WARNING: signing two different outcomes for the same event reveals the Oracle secret key.
+/// The caller has to make sure an event is attested only once.
+#[pyfunction]
+pub fn sign_attestation_with_derived_nonces(
+    index4: u32,
+    index5: u32,
+    oracle_pubkey: String,
+    event_id: String,
+    num_digits: u8,
+    digit_string_template: String,
+    digit_values: String,
+    nonces: String,
+) -> PyResult<String> {
+    dlccryptlib::sign_attestation_with_derived_nonces(
+        index4,
+        index5,
+        &oracle_pubkey,
+        &event_id,
+        num_digits,
+        &digit_string_template,
+        &digit_values,
+        &nonces,
+    )
+    .map_err(|e| PyErr::new::<PyException, _>(e))
+}
+
 /// Sign a message using Schnorr, with a nonce, using a child key
 #[pyfunction]
 pub fn sign_schnorr_with_nonce(
@@ -271,6 +302,7 @@ fn dlccryptlib_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(create_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(create_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(verify_derived_nonces, m)?)?;
+    m.add_function(wrap_pyfunction!(sign_attestation_with_derived_nonces, m)?)?;
     m.add_function(wrap_pyfunction!(sign_schnorr_with_nonce, m)?)?;
     m.add_function(wrap_pyfunction!(verify_schnorr, m)?)?;
     m.add_function(wrap_pyfunction!(combine_pubkeys, m)?)?;
