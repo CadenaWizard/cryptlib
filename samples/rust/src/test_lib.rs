@@ -59,3 +59,44 @@ fn test_sign_hash_ecdsa() {
     assert!(dlccryptlib::sign_hash_ecdsa(&hash, 0, 31, &pubkey3).is_err());
     assert!(dlccryptlib::sign_hash_ecdsa(&hash, 1, 3, &pubkey3).is_err());
 }
+
+#[test]
+fn test_derived_nonces() {
+    let _xpub = dlccryptlib::init_with_entropy(DUMMY_ENTROPY_STR, DEFAULT_NETWORK).unwrap();
+    let oracle_pubkey = dlccryptlib::get_public_key(0, 0).unwrap();
+    let event_id = "btcusd1741474920";
+    let template = "Outcome:btcusd1741474920:{digit_index}:{digit_outcome}";
+
+    let nonces = dlccryptlib::create_derived_nonces(0, 0, &oracle_pubkey, event_id, 4).unwrap();
+    assert_eq!(nonces.split(" ").count(), 4);
+    // Deterministic
+    assert_eq!(
+        dlccryptlib::create_derived_nonces(0, 0, &oracle_pubkey, event_id, 4).unwrap(),
+        nonces
+    );
+    assert!(
+        dlccryptlib::verify_derived_nonces(0, 0, &oracle_pubkey, event_id, 4, &nonces).unwrap()
+    );
+    assert!(
+        !dlccryptlib::verify_derived_nonces(0, 0, &oracle_pubkey, "other_event", 4, &nonces)
+            .unwrap()
+    );
+
+    let attestation = dlccryptlib::sign_attestation_with_derived_nonces(
+        0,
+        0,
+        &oracle_pubkey,
+        event_id,
+        4,
+        template,
+        "9534",
+        &nonces,
+    )
+    .unwrap();
+    let sigs: Vec<_> = attestation.split(" ").collect();
+    assert_eq!(sigs.len(), 4);
+    assert!(dlccryptlib::verify_schnorr("Outcome:btcusd1741474920:0:9", sigs[0], 0, 0).unwrap());
+
+    // negative test, wrong index for the pubkey
+    assert!(dlccryptlib::create_derived_nonces(0, 1, &oracle_pubkey, event_id, 4).is_err());
+}

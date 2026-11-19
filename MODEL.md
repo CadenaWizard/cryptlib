@@ -227,7 +227,7 @@ m = \mathrm{SHA256}(\text{outcome string})
 
 > Note: this is plain SHA-256 of the string. The [dlcspecs](https://github.com/discreetlogcontracts/dlcspecs) instead use a tagged hash (`DLC/oracle/attestation/v0`), so the two are not wire-compatible.
 
-**Nonce.** The Oracle generates $k$ ahead of time and publishes $R = kG$ in the event announcement (see [A.6](#a6-nonce-generation)).
+**Nonce.** The Oracle generates (or derives) $k$ ahead of time and publishes $R = kG$ in the event announcement (see [A.6](#a6-nonce-generation)).
 
 **Signing.** BIP340 signing, except that the nonce is the pre-committed $k$ instead of one derived from the message (`schnorrsig_sign_with_nonce`, which plugs a constant-nonce function into `secp256k1_schnorrsig_sign_custom`):
 
@@ -348,6 +348,31 @@ k = \mathrm{SHA256}(\text{nonce\_seed} \parallel \text{event\_id} \parallel \tex
 - `aux_rand`: 32 bytes of fresh OS randomness. Even the master-secret holder can't reproduce the nonce, which guards against a buggy or duplicated derivation.
 
 Since the result is not reproducible, the Oracle has to **store** the secret nonce until it attests.
+
+#### Derived nonces
+
+Alternatively, the nonces can be derived **deterministically**, so the Oracle doesn't have to store secret nonces: the library recomputes them when it attests. The secret nonce never leaves the library.
+
+`create_derived_nonces(index4, index5, oracle_pubkey, event_id, num_digits)` derives, for each digit index $d$ (`derive_nonce_secret`):
+
+```math
+k_d = H_{\text{tag}}(x_O \parallel X_O \parallel \text{len(event\_id)}_{\text{BE32}} \parallel \text{event\_id} \parallel d_{\text{BE32}})
+```
+
+This is the BIP340 nonce construction (secret key, public key, message), without the aux randomness, since the nonce has to be reproducible, and with its own tag.
+
+- $H_{\text{tag}}$: BIP340-style tagged hash, $\mathrm{SHA256}(\mathrm{SHA256}(\text{tag}) \parallel \mathrm{SHA256}(\text{tag}) \parallel \cdot)$, with tag `DLCPlaza/derived-nonce`. The tag separates this hash from other uses of the same key (BIP340 signing, RFC6979 for ECDSA).
+- $x_O$: the Oracle (signing) secret key, 32 bytes. Without it, nobody else can compute the nonce. It also gives each key its own nonces. It matters: the signing keys are non-hardened siblings, $x_2 = x_1 + t$ with $t$ computable from the account xpub. If two keys used the same nonce, $s_1 - s_2 = (e_1 - e_2)\,x_1 - e_2 t$ would give away $x_1$.
+- $X_O$: the Oracle public key, 33 bytes compressed. It binds the nonce to the key that signs, as in BIP340.
+- `event_id` (with a length prefix) and $d$: a different nonce for each event and digit.
+
+If the hash is not a valid secret key (zero, or not below $n$), an error is returned. The public nonces are returned as 33-byte compressed keys, and compared x-only when checked.
+
+`verify_derived_nonces` checks given nonces against the derived ones. `sign_attestation_with_derived_nonces` creates the attestation for all digits of the outcome: it checks the announced nonces against the derived ones, builds each digit's message from the template (with the same code as the signature points, see [A.5](#a5-numeric-outcomes-digit-decomposition)), and signs only if every check passes. All three check the given `oracle_pubkey` against the child key at `(index4, index5)` first; a mismatch is an error.
+
+**Attest only once.** Because the nonces are deterministic, the library will sign again whenever it's asked. Signing a different outcome for the same `(oracle_pubkey, event_id)` reuses the nonces and reveals $x_O$ (see [A.3](#a3-oracle-attestation-schnorr-with-a-pre-committed-nonce)). The library keeps no state, so the Oracle must record that an event is attested before releasing the attestation, and must never reuse an event ID for a different event with the same key, including after a restart or a database restore.
+
+**Fixed once in use.** Changing any of these changes every derived nonce: the tag, the hash input and its order, the Oracle key derivation (account path and indices), and the seed handling (BIP39, empty passphrase).
 
 ### A.7 Key Derivation
 
